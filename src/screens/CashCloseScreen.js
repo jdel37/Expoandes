@@ -1,0 +1,240 @@
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Alert } from 'react-native';
+import colors from '../theme/colors';
+import Card from '../components/Card';
+import ModernButton from '../components/ModernButton';
+import ModernInput from '../components/ModernInput';
+import AbstractBackground from '../components/AbstractBackground';
+import { useApp } from '../context/AppContext';
+import { Feather } from '@expo/vector-icons';
+
+export default function CashCloseScreen() {
+  const { cashClose, updateCashClose, closeCash, calculateStats } = useApp();
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(30));
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handleClose = () => {
+    if (!cashClose.cash || !cashClose.sales) {
+      Alert.alert('Error', 'Por favor ingresa tanto el dinero en caja como las ventas registradas');
+      return;
+    }
+    
+    closeCash();
+    const diff = parseFloat(cashClose.cash || 0) - parseFloat(cashClose.sales || 0);
+    
+    let message = `Cierre realizado exitosamente.\nDiferencia: ${Math.abs(diff).toFixed(2)}`;
+    if (diff === 0) {
+      message += '\n¡Perfecto! No hay diferencia.';
+    } else if (diff > 0) {
+      message += '\nSobrante en caja.';
+    } else {
+      message += '\nFaltante en caja.';
+    }
+    
+    Alert.alert('Cierre de Caja', message);
+  };
+
+  const handleCashChange = useCallback((value) => {
+    updateCashClose({ cash: value });
+  }, [updateCashClose]);
+
+  const handleSalesChange = useCallback((value) => {
+    updateCashClose({ sales: value });
+  }, [updateCashClose]);
+
+  const getDifferenceColor = () => {
+    if (cashClose.difference === null) return colors.textMuted;
+    if (cashClose.difference === 0) return colors.success;
+    if (cashClose.difference > 0) return colors.warning;
+    return colors.error;
+  };
+
+  const getDifferenceIcon = () => {
+    if (cashClose.difference === null) return 'minus';
+    if (cashClose.difference === 0) return 'check-circle';
+    if (cashClose.difference > 0) return 'trending-up';
+    return 'trending-down';
+  };
+
+  return (
+    <AbstractBackground>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
+          <Text style={styles.title}>Cierre de Caja</Text>
+          <Text style={styles.subtitle}>Registra el cierre de tu turno</Text>
+        </Animated.View>
+
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <Card variant="elevated" title="Información del Turno" subtitle="Ingresa los datos del cierre">
+            <ModernInput
+              label="Dinero en Caja"
+              placeholder="Ingresa el dinero contado"
+              value={cashClose.cash}
+              onChangeText={handleCashChange}
+              keyboardType="numeric"
+              icon="dollar-sign"
+            />
+
+            <ModernInput
+              label="Ventas Registradas"
+              placeholder="Total de ventas del turno"
+              value={cashClose.sales}
+              onChangeText={handleSalesChange}
+              keyboardType="numeric"
+              icon="credit-card"
+            />
+
+            <ModernButton
+              title="Cerrar Caja"
+              onPress={handleClose}
+              variant="gradient"
+              size="large"
+              icon="calculator"
+              style={styles.closeButton}
+            />
+          </Card>
+
+          {cashClose.difference !== null && (
+            <Card variant="elevated" title="Resultado del Cierre" subtitle="Resumen de la operación">
+              <View style={styles.resultContainer}>
+                <View style={[styles.resultIcon, { backgroundColor: getDifferenceColor() + '15' }]}>
+                  <Feather name={getDifferenceIcon()} size={24} color={getDifferenceColor()} />
+                </View>
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultLabel}>Diferencia</Text>
+                  <Text style={[styles.resultAmount, { color: getDifferenceColor() }]}>
+                    ${Math.abs(cashClose.difference).toFixed(2)}
+                  </Text>
+                  <Text style={[styles.resultStatus, { color: getDifferenceColor() }]}>
+                    {cashClose.difference === 0 ? 'Perfecto' : cashClose.difference > 0 ? 'Sobrante' : 'Faltante'}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          )}
+
+          <Card variant="outlined" title="Resumen Diario" subtitle="Estadísticas del día">
+            <View style={styles.summaryContainer}>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Ventas Totales</Text>
+                <Text style={styles.summaryValue}>${(parseFloat(cashClose.sales) || 0).toLocaleString()}</Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Dinero en Caja</Text>
+                <Text style={styles.summaryValue}>${(parseFloat(cashClose.cash) || 0).toLocaleString()}</Text>
+              </View>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Estado</Text>
+                <Text style={[styles.summaryValue, { color: getDifferenceColor() }]}>
+                  {cashClose.difference === null ? 'Pendiente' : cashClose.difference === 0 ? 'Balanceado' : 'Desbalanceado'}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </ScrollView>
+      </Animated.View>
+    </AbstractBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 60,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 100,
+  },
+  closeButton: {
+    marginTop: 20,
+  },
+  resultContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  resultIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 20,
+  },
+  resultInfo: {
+    flex: 1,
+  },
+  resultLabel: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  resultAmount: {
+    fontSize: 32,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  resultStatus: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  summaryContainer: {
+    paddingVertical: 20,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  summaryValue: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '600',
+  },
+});
