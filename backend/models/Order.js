@@ -30,7 +30,6 @@ const orderItemSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    required: true,
     unique: true
   },
   customer: {
@@ -67,7 +66,6 @@ const orderSchema = new mongoose.Schema({
   items: [orderItemSchema],
   subtotal: {
     type: Number,
-    required: true,
     min: [0, 'El subtotal no puede ser negativo']
   },
   tax: {
@@ -82,7 +80,6 @@ const orderSchema = new mongoose.Schema({
   },
   total: {
     type: Number,
-    required: true,
     min: [0, 'El total no puede ser negativo']
   },
   status: {
@@ -212,12 +209,23 @@ orderSchema.statics.getDailySales = function(restaurantId, date) {
 };
 
 // Instance method to update status
-orderSchema.methods.updateStatus = function(newStatus) {
+orderSchema.methods.updateStatus = async function(newStatus) {
+  const oldStatus = this.status;
   this.status = newStatus;
   
   if (newStatus === 'delivered' && !this.completedAt) {
     this.completedAt = new Date();
     this.actualTime = Math.floor((this.completedAt - this.createdAt) / (1000 * 60));
+  }
+
+  // Restore inventory if order is cancelled
+  if (newStatus === 'cancelled' && oldStatus !== 'cancelled') {
+    for (const item of this.items) {
+      await mongoose.model('InventoryItem').findByIdAndUpdate(
+        item.inventoryItem,
+        { $inc: { quantity: item.quantity } }
+      );
+    }
   }
   
   return this.save();

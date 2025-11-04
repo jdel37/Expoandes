@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/apiService';
 import eventBus from '../utils/EventBus';
+import { getTheme } from '../theme/colors';
 
 const AppContext = createContext();
 
@@ -17,50 +18,6 @@ const initialState = {
   
   // Orders data
   orders: [],
-  
-  // Orders data (old dummy data for reference)
-  /*orders: [
-    { 
-      id: '001', 
-      customer: 'Mesa 1', 
-      total: 25000, 
-      status: 'Entregado',
-      time: '12:30 PM',
-      items: 3,
-      color: '#7ED321',
-      date: new Date().toISOString()
-    },
-    { 
-      id: '002', 
-      customer: 'Mesa 2', 
-      total: 38000, 
-      status: 'Pendiente',
-      time: '1:15 PM',
-      items: 5,
-      color: '#FFB800',
-      date: new Date().toISOString()
-    },
-    { 
-      id: '003', 
-      customer: 'Domicilio', 
-      total: 54000, 
-      status: 'Entregado',
-      time: '11:45 AM',
-      items: 4,
-      color: '#7ED321',
-      date: new Date().toISOString()
-    },
-    { 
-      id: '004', 
-      customer: 'Mesa 3', 
-      total: 42000, 
-      status: 'En Proceso',
-      time: '2:00 PM',
-      items: 6,
-      color: '#3742FA',
-      date: new Date().toISOString()
-    },
-  ]*/
   
   // Cash close data
   cashClose: {
@@ -226,6 +183,7 @@ const appReducer = (state, action) => {
 // Provider component
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const theme = getTheme(state.darkMode ? 'dark' : 'light');
 
   const checkAuthAndLoadData = async () => {
     try {
@@ -251,7 +209,7 @@ export const AppProvider = ({ children }) => {
       const [inventoryResponse, ordersResponse, cashCloseResponse, analyticsResponse] = await Promise.all([
         apiService.getInventory(),
         apiService.getOrders(),
-        apiService.getCashCloses(),
+        apiService.getCurrentCashClose(),
         apiService.getDashboardAnalytics()
       ]);
 
@@ -262,8 +220,11 @@ export const AppProvider = ({ children }) => {
             ...item,
             id: item._id
           })),
-          orders: ordersResponse.data.orders || [],
-          cashClose: {
+          orders: (ordersResponse.data.orders || []).map(order => ({
+            ...order,
+            id: order._id
+          })),
+          cashClose: cashCloseResponse.data.cashClose || {
             cash: '',
             sales: '',
             difference: null,
@@ -395,7 +356,11 @@ export const AppProvider = ({ children }) => {
     addOrder: async (order) => {
       try {
         const response = await apiService.createOrder(order);
-        dispatch({ type: ActionTypes.ADD_ORDER, payload: response.data.order });
+        const newOrder = {
+          ...response.data.order,
+          id: response.data.order._id
+        };
+        dispatch({ type: ActionTypes.ADD_ORDER, payload: newOrder });
         return response;
       } catch (error) {
         console.error('Error adding order:', error);
@@ -429,7 +394,7 @@ export const AppProvider = ({ children }) => {
     },
     closeCash: async (closingData) => {
       try {
-        const response = await apiService.closeCash(closingData.id, closingData);
+        const response = await apiService.closeCash(closingData._id, closingData);
         dispatch({ type: ActionTypes.CLOSE_CASH });
         return response;
       } catch (error) {
@@ -479,11 +444,26 @@ export const AppProvider = ({ children }) => {
     };
   };
 
+  const calculateCOGS = () => {
+    let cogs = 0;
+    state.orders.forEach(order => {
+      order.items.forEach(item => {
+        const inventoryItem = state.inventory.find(invItem => invItem.id === item.id);
+        if (inventoryItem) {
+          cogs += inventoryItem.costPrice * item.quantity;
+        }
+      });
+    });
+    return cogs;
+  };
+
   const value = {
     ...state,
     ...actions,
+    theme,
     getStockStatus,
-    calculateStats
+    calculateStats,
+    calculateCOGS
   };
 
   return (

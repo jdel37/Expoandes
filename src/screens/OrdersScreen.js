@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Alert, TouchableOpacity } from 'react-native';
-import colors from '../theme/colors';
 import Card from '../components/Card';
 import ModernButton from '../components/ModernButton';
 import AbstractBackground from '../components/AbstractBackground';
 import AddItemModal from '../components/AddItemModal';
 import { useApp } from '../context/AppContext';
 import { Feather } from '@expo/vector-icons';
+import { formatCurrency } from '../utils/helpers';
 
 export default function OrdersScreen() {
-  const { orders, addOrder, updateOrderStatus, deleteOrder, calculateStats } = useApp();
+  const { theme, orders, addOrder, updateOrderStatus, deleteOrder, calculateStats } = useApp();
+  const styles = getStyles(theme);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
   const [showAddModal, setShowAddModal] = useState(false);
@@ -32,10 +33,10 @@ export default function OrdersScreen() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Entregado': return colors.success;
-      case 'Pendiente': return colors.warning;
-      case 'En Proceso': return colors.info;
-      default: return colors.textMuted;
+      case 'Entregado': return theme.success;
+      case 'Pendiente': return theme.warning;
+      case 'En Proceso': return theme.info;
+      default: return theme.textMuted;
     }
   };
 
@@ -49,8 +50,14 @@ export default function OrdersScreen() {
   };
 
   const handleAddOrder = (orderData) => {
-    addOrder(orderData);
-    setShowAddModal(false);
+    addOrder(orderData)
+      .then(() => {
+        setShowAddModal(false);
+      })
+      .catch(err => {
+        setShowAddModal(false);
+        Alert.alert('Error al Agregar', err.message || 'No se pudo agregar el pedido. Verifique los datos.');
+      });
   };
 
   const handleEditOrder = (order) => {
@@ -92,7 +99,7 @@ export default function OrdersScreen() {
 
   return (
     <AbstractBackground>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>Pedidos</Text>
@@ -116,7 +123,7 @@ export default function OrdersScreen() {
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statNumber}>${stats.totalRevenue.toLocaleString()}</Text>
+                <Text style={styles.statNumber}>{formatCurrency(stats.totalRevenue)}</Text>
                 <Text style={styles.statLabel}>Ingresos</Text>
               </View>
             </View>
@@ -133,12 +140,12 @@ export default function OrdersScreen() {
                 </TouchableOpacity>
                 <View style={styles.orderInfo}>
                   <View style={styles.orderHeader}>
-                    <Text style={styles.customerName}>{order.customer}</Text>
-                    <Text style={styles.orderTime}>{order.time}</Text>
+                    <Text style={styles.customerName}>{order.customer.name}</Text>
+                    <Text style={styles.orderTime}>{new Date(order.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Text>
                   </View>
                   <View style={styles.orderDetails}>
-                    <Text style={styles.orderItems}>{order.items} productos</Text>
-                    <Text style={styles.orderTotal}>${order.total.toLocaleString()}</Text>
+                    <Text style={styles.orderItems}>{order.items.length} productos</Text>
+                    <Text style={styles.orderTotal}>{formatCurrency(order.total)}</Text>
                   </View>
                 </View>
                 <View style={styles.orderActions}>
@@ -152,13 +159,13 @@ export default function OrdersScreen() {
                       style={styles.actionButton}
                       onPress={() => handleEditOrder(order)}
                     >
-                      <Feather name="edit" size={16} color={colors.primary} />
+                      <Feather name="edit" size={16} color={theme.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={styles.actionButton}
                       onPress={() => handleDeleteOrder(order)}
                     >
-                      <Feather name="trash-2" size={16} color={colors.error} />
+                      <Feather name="trash-2" size={16} color={theme.error} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -191,7 +198,7 @@ export default function OrdersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,

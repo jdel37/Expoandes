@@ -1,15 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Alert } from 'react-native';
-import colors from '../theme/colors';
+import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import Card from '../components/Card';
 import ModernButton from '../components/ModernButton';
 import ModernInput from '../components/ModernInput';
 import AbstractBackground from '../components/AbstractBackground';
 import { useApp } from '../context/AppContext';
 import { Feather } from '@expo/vector-icons';
+import { formatCurrency } from '../utils/helpers';
 
 export default function CashCloseScreen() {
-  const { cashClose, updateCashClose, closeCash, calculateStats } = useApp();
+  const { theme, cashClose, updateCashClose, closeCash } = useApp();
+  const styles = getStyles(theme);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
 
@@ -30,23 +31,34 @@ export default function CashCloseScreen() {
 
   const handleClose = () => {
     if (!cashClose.cash || !cashClose.sales) {
-      Alert.alert('Error', 'Por favor ingresa tanto el dinero en caja como las ventas registradas');
+      Alert.alert('Error', 'Por favor ingresa tanto el efectivo en caja como las ventas con tarjeta');
       return;
     }
+
+    const closingData = {
+      _id: cashClose._id,
+      closingCash: parseFloat(cashClose.cash),
+      sales: {
+        card: parseFloat(cashClose.sales),
+      }
+    };
     
-    closeCash();
-    const diff = parseFloat(cashClose.cash || 0) - parseFloat(cashClose.sales || 0);
-    
-    let message = `Cierre realizado exitosamente.\nDiferencia: ${Math.abs(diff).toFixed(2)}`;
-    if (diff === 0) {
-      message += '\n¡Perfecto! No hay diferencia.';
-    } else if (diff > 0) {
-      message += '\nSobrante en caja.';
-    } else {
-      message += '\nFaltante en caja.';
-    }
-    
-    Alert.alert('Cierre de Caja', message);
+    closeCash(closingData)
+      .then((response) => {
+        const { difference } = response.data.cashClose;
+        let message = `Cierre realizado exitosamente.\nDiferencia: ${formatCurrency(Math.abs(difference))}`;
+        if (difference === 0) {
+          message += '\n¡Perfecto! No hay diferencia.';
+        } else if (difference > 0) {
+          message += '\nSobrante en caja.';
+        } else {
+          message += '\nFaltante en caja.';
+        }
+        Alert.alert('Cierre de Caja', message);
+      })
+      .catch(err => {
+        Alert.alert('Error de Cierre', err.message || 'No se pudo cerrar la caja.');
+      });
   };
 
   const handleCashChange = useCallback((value) => {
@@ -58,10 +70,10 @@ export default function CashCloseScreen() {
   }, [updateCashClose]);
 
   const getDifferenceColor = () => {
-    if (cashClose.difference === null) return colors.textMuted;
-    if (cashClose.difference === 0) return colors.success;
-    if (cashClose.difference > 0) return colors.warning;
-    return colors.error;
+    if (cashClose.difference === null) return theme.textMuted;
+    if (cashClose.difference === 0) return theme.success;
+    if (cashClose.difference > 0) return theme.warning;
+    return theme.error;
   };
 
   const getDifferenceIcon = () => {
@@ -73,90 +85,96 @@ export default function CashCloseScreen() {
 
   return (
     <AbstractBackground>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
-          <Text style={styles.title}>Cierre de Caja</Text>
-          <Text style={styles.subtitle}>Registra el cierre de tu turno</Text>
-        </Animated.View>
+      <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+          <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
+            <Text style={styles.title}>Cierre de Caja</Text>
+            <Text style={styles.subtitle}>Registra el cierre de tu turno</Text>
+          </Animated.View>
 
-        <ScrollView 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <Card variant="elevated" title="Información del Turno" subtitle="Ingresa los datos del cierre">
-            <ModernInput
-              label="Dinero en Caja"
-              placeholder="Ingresa el dinero contado"
-              value={cashClose.cash}
-              onChangeText={handleCashChange}
-              keyboardType="numeric"
-              icon="dollar-sign"
-            />
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps='handled'
+          >
+            <Card variant="elevated" title="Información del Turno" subtitle="Ingresa los datos del cierre">
+              <ModernInput
+                label="Efectivo en Caja"
+                placeholder="Ingresa el efectivo contado"
+                value={cashClose.cash}
+                onChangeText={handleCashChange}
+                keyboardType="numeric"
+                icon="dollar-sign"
+              />
 
-            <ModernInput
-              label="Ventas Registradas"
-              placeholder="Total de ventas del turno"
-              value={cashClose.sales}
-              onChangeText={handleSalesChange}
-              keyboardType="numeric"
-              icon="credit-card"
-            />
+              <ModernInput
+                label="Ventas con Tarjeta"
+                placeholder="Total de ventas con tarjeta"
+                value={cashClose.sales}
+                onChangeText={handleSalesChange}
+                keyboardType="numeric"
+                icon="credit-card"
+              />
 
-            <ModernButton
-              title="Cerrar Caja"
-              onPress={handleClose}
-              variant="gradient"
-              size="large"
-              icon="calculator"
-              style={styles.closeButton}
-            />
-          </Card>
+              <ModernButton
+                title="Cerrar Caja"
+                onPress={handleClose}
+                variant="gradient"
+                size="large"
+                icon="hash"
+                style={styles.closeButton}
+              />
+            </Card>
 
-          {cashClose.difference !== null && (
-            <Card variant="elevated" title="Resultado del Cierre" subtitle="Resumen de la operación">
-              <View style={styles.resultContainer}>
-                <View style={[styles.resultIcon, { backgroundColor: getDifferenceColor() + '15' }]}>
-                  <Feather name={getDifferenceIcon()} size={24} color={getDifferenceColor()} />
+            {cashClose.difference !== null && (
+              <Card variant="elevated" title="Resultado del Cierre" subtitle="Resumen de la operación">
+                <View style={styles.resultContainer}>
+                  <View style={[styles.resultIcon, { backgroundColor: getDifferenceColor() + '15' }]}>
+                    <Feather name={getDifferenceIcon()} size={24} color={getDifferenceColor()} />
+                  </View>
+                  <View style={styles.resultInfo}>
+                    <Text style={styles.resultLabel}>Diferencia</Text>
+                    <Text style={[styles.resultAmount, { color: getDifferenceColor() }]}>
+                      {formatCurrency(Math.abs(cashClose.difference))}
+                    </Text>
+                    <Text style={[styles.resultStatus, { color: getDifferenceColor() }]}>
+                      {cashClose.difference === 0 ? 'Perfecto' : cashClose.difference > 0 ? 'Sobrante' : 'Faltante'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.resultInfo}>
-                  <Text style={styles.resultLabel}>Diferencia</Text>
-                  <Text style={[styles.resultAmount, { color: getDifferenceColor() }]}>
-                    ${Math.abs(cashClose.difference).toFixed(2)}
-                  </Text>
-                  <Text style={[styles.resultStatus, { color: getDifferenceColor() }]}>
-                    {cashClose.difference === 0 ? 'Perfecto' : cashClose.difference > 0 ? 'Sobrante' : 'Faltante'}
+              </Card>
+            )}
+
+            <Card variant="outlined" title="Resumen Diario" subtitle="Estadísticas del día">
+              <View style={styles.summaryContainer}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Ventas con Tarjeta</Text>
+                  <Text style={styles.summaryValue}>{formatCurrency(parseFloat(cashClose.sales) || 0)}</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Efectivo en Caja</Text>
+                  <Text style={styles.summaryValue}>{formatCurrency(parseFloat(cashClose.cash) || 0)}</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Estado</Text>
+                  <Text style={[styles.summaryValue, { color: getDifferenceColor() }]}>
+                    {cashClose.difference === null ? 'Pendiente' : cashClose.difference === 0 ? 'Balanceado' : 'Desbalanceado'}
                   </Text>
                 </View>
               </View>
             </Card>
-          )}
-
-          <Card variant="outlined" title="Resumen Diario" subtitle="Estadísticas del día">
-            <View style={styles.summaryContainer}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Ventas Totales</Text>
-                <Text style={styles.summaryValue}>${(parseFloat(cashClose.sales) || 0).toLocaleString()}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Dinero en Caja</Text>
-                <Text style={styles.summaryValue}>${(parseFloat(cashClose.cash) || 0).toLocaleString()}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Estado</Text>
-                <Text style={[styles.summaryValue, { color: getDifferenceColor() }]}>
-                  {cashClose.difference === null ? 'Pendiente' : cashClose.difference === 0 ? 'Balanceado' : 'Desbalanceado'}
-                </Text>
-              </View>
-            </View>
-          </Card>
-        </ScrollView>
-      </Animated.View>
+          </ScrollView>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </AbstractBackground>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,

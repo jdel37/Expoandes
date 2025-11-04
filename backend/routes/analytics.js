@@ -477,22 +477,37 @@ function calculateProjections(data, period) {
   const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
   const sumXX = x.reduce((sum, xi) => sum + xi * xi, 0);
   
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+  const denominator = n * sumXX - sumX * sumX;
+  if (denominator === 0) {
+    // Data is not suitable for linear regression
+    return {
+      nextPeriod: y.reduce((a,b) => a+b, 0) / n, // return average
+      trend: 'stable',
+      confidence: 'low'
+    };
+  }
+
+  const slope = (n * sumXY - sumX * sumY) / denominator;
   const intercept = (sumY - slope * sumX) / n;
   
   // Calculate trend
   const recentAvg = y.slice(-7).reduce((a, b) => a + b, 0) / Math.min(7, y.length);
-  const olderAvg = y.slice(0, Math.max(1, y.length - 7)).reduce((a, b) => a + b, 0) / Math.max(1, y.length - 7);
+  
+  const olderDataEndIndex = Math.max(0, y.length - 7);
+  const olderData = y.slice(0, olderDataEndIndex);
+  const olderAvg = olderData.reduce((a, b) => a + b, 0) / (olderData.length || 1);
   
   let trend = 'stable';
-  if (recentAvg > olderAvg * 1.1) trend = 'increasing';
-  else if (recentAvg < olderAvg * 0.9) trend = 'decreasing';
+  if (olderAvg > 0) {
+    if (recentAvg > olderAvg * 1.1) trend = 'increasing';
+    else if (recentAvg < olderAvg * 0.9) trend = 'decreasing';
+  }
   
   // Project next period
   const nextPeriod = Math.max(0, slope * n + intercept);
   
   // Calculate confidence based on data consistency
-  const variance = y.reduce((sum, yi) => sum + Math.pow(yi - (slope * x[y.indexOf(yi)] + intercept), 2), 0) / n;
+  const variance = y.reduce((sum, yi, i) => sum + Math.pow(yi - (slope * x[i] + intercept), 2), 0) / n;
   const confidence = variance < 10000 ? 'high' : variance < 50000 ? 'medium' : 'low';
 
   return {
@@ -504,3 +519,4 @@ function calculateProjections(data, period) {
 }
 
 module.exports = router;
+// Forcing a reload

@@ -2,7 +2,7 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import colors from '../theme/colors';
+import { useApp } from '../context/AppContext';
 
 export default function ModernButton({
   title,
@@ -16,6 +16,9 @@ export default function ModernButton({
   style = {},
   textStyle = {},
 }) {
+  const { theme } = useApp();
+  const styles = getStyles(theme);
+
   const getButtonStyle = () => {
     const baseStyle = [styles.button, styles[size]];
     
@@ -65,17 +68,17 @@ export default function ModernButton({
     <View style={styles.content}>
       {loading ? (
         <ActivityIndicator 
-          color={variant === 'primary' || variant === 'gradient' ? colors.white : colors.primary} 
+          color={variant === 'primary' || variant === 'gradient' ? theme.white : theme.primary} 
           size="small" 
         />
       ) : (
         <>
           {icon && iconPosition === 'left' && (
-            <Feather name={icon} size={16} color={getTextStyle().color || colors.white} style={styles.iconLeft} />
+            <Feather name={icon} size={16} color={getTextStyle().color || theme.white} style={styles.iconLeft} />
           )}
           <Text style={getTextStyle()}>{title}</Text>
           {icon && iconPosition === 'right' && (
-            <Feather name={icon} size={16} color={getTextStyle().color || colors.white} style={styles.iconRight} />
+            <Feather name={icon} size={16} color={getTextStyle().color || theme.white} style={styles.iconRight} />
           )}
         </>
       )}
@@ -91,7 +94,7 @@ export default function ModernButton({
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={colors.gradient}
+          colors={theme.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.button, styles[size]]}
@@ -114,7 +117,7 @@ export default function ModernButton({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   buttonContainer: {
     borderRadius: 12,
     overflow: 'hidden',

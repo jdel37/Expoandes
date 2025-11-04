@@ -4,6 +4,10 @@ const CashClose = require('../models/CashClose');
 const Order = require('../models/Order');
 const { auth, authorize } = require('../middleware/auth');
 
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(value);
+};
+
 const router = express.Router();
 
 // @route   GET /api/cash-close
@@ -206,9 +210,7 @@ router.post('/', [
 router.put('/:id/close', [
   auth,
   body('closingCash').isFloat({ min: 0 }).withMessage('El dinero de cierre debe ser un número no negativo'),
-  body('sales.cash').optional().isFloat({ min: 0 }).withMessage('Ventas en efectivo deben ser no negativas'),
-  body('sales.card').optional().isFloat({ min: 0 }).withMessage('Ventas con tarjeta deben ser no negativas'),
-  body('sales.transfer').optional().isFloat({ min: 0 }).withMessage('Ventas por transferencia deben ser no negativas'),
+  body('sales.card').isFloat({ min: 0 }).withMessage('Ventas con tarjeta deben ser no negativas'),
   body('expenses').optional().isArray().withMessage('Gastos deben ser un array'),
   body('notes').optional().trim().isLength({ max: 500 }).withMessage('Notas muy largas')
 ], async (req, res) => {
@@ -244,29 +246,53 @@ router.put('/:id/close', [
       });
     }
 
-    // Calculate expected cash from orders
     const today = new Date();
     const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(today);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const orders = await Order.find({
+    // Calculate expected cash from cash orders
+    const cashOrders = await Order.find({
       restaurant: req.restaurant,
       createdAt: { $gte: startOfDay, $lte: endOfDay },
       isActive: true,
-      paymentMethod: 'cash',
-      status: { $ne: 'cancelled' }
-    });
+                paymentMethod: 'cash',
+                status: 'delivered'    });
+    const expectedCashFromOrders = cashOrders.reduce((sum, order) => sum + order.total, 0);
+    const expectedCashInBox = cashClose.openingCash + expectedCashFromOrders;
 
-    const expectedCashFromOrders = orders.reduce((sum, order) => sum + order.total, 0);
-    const expectedCash = cashClose.openingCash + expectedCashFromOrders;
+    // Calculate expected card sales from card orders
+    const cardOrders = await Order.find({
+      restaurant: req.restaurant,
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+      isActive: true,
+      paymentMethod: 'card',
+      status: 'delivered'
+    });
+    const expectedCardSales = cardOrders.reduce((sum, order) => sum + order.total, 0);
+
+    // Compare physical cash with expected cash
+    if (Math.abs(closingCash - expectedCashInBox) > 0.01) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Hay una diferencia en el efectivo. Esperado: ${formatCurrency(expectedCashInBox)}, Contado: ${formatCurrency(closingCash)}`
+      });
+    }
+
+    // Compare card sales with expected card sales
+    if (Math.abs(sales.card - expectedCardSales) > 0.01) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Hay una diferencia en las ventas con tarjeta. Esperado: ${formatCurrency(expectedCardSales)}, Registrado: ${formatCurrency(sales.card)}`
+      });
+    }
 
     // Close cash
     await cashClose.closeCash({
       closingCash,
-      expectedCash,
-      sales: sales || { cash: 0, card: 0, transfer: 0 },
+      expectedCash: expectedCashInBox,
+      sales,
       expenses,
       notes
     }, req.user._id);

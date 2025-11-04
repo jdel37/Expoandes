@@ -7,13 +7,13 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Animated,
   StatusBar,
   Alert,
+  Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { AuthContext } from '../context/AuthContext';
-import colors from '../theme/colors';
+import { useApp } from '../context/AppContext';
 import AbstractBackground from '../components/AbstractBackground';
 import Card from '../components/Card';
 import ModernButton from '../components/ModernButton';
@@ -23,28 +23,15 @@ const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const { login, register } = useContext(AuthContext);
+  const { theme } = useApp();
+  const styles = getStyles(theme);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(30));
 
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -112,22 +99,17 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <AbstractBackground variant="login">
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <View style={styles.content}>
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <LinearGradient
-                colors={colors.gradient}
-                style={styles.logoGradient}
-              >
-                <Feather name="trending-up" size={32} color={colors.white} />
-              </LinearGradient>
+              <Image source={require('../../assets/Finova.png')} style={styles.logo} />
             </View>
-            <Text style={styles.title}>Bienvenido a CDP</Text>
+            <Text style={styles.title}>Bienvenido a Finova</Text>
             <Text style={styles.subtitle}>Gestión inteligente para tu negocio</Text>
           </View>
 
@@ -149,11 +131,11 @@ export default function LoginScreen({ navigation }) {
 
             {isRegistering && (
               <View style={styles.inputContainer}>
-                <Feather name="user" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Feather name="user" size={20} color={theme.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Nombre completo"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   value={name}
                   onChangeText={setName}
                 />
@@ -161,11 +143,11 @@ export default function LoginScreen({ navigation }) {
             )}
 
             <View style={styles.inputContainer}>
-              <Feather name="mail" size={20} color={colors.textMuted} style={styles.inputIcon} />
+              <Feather name="mail" size={20} color={theme.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Correo electrónico"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -174,11 +156,11 @@ export default function LoginScreen({ navigation }) {
             </View>
             
             <View style={styles.inputContainer}>
-              <Feather name="lock" size={20} color={colors.textMuted} style={styles.inputIcon} />
+              <Feather name="lock" size={20} color={theme.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Contraseña"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -203,14 +185,14 @@ export default function LoginScreen({ navigation }) {
             )}
           </Card>
 
-          <Text style={styles.footer}>CDP © 2025 - Todos los derechos reservados</Text>
-        </Animated.View>
+          <Text style={styles.footer}>Finova © 2025 - Todos los derechos reservados</Text>
+        </View>
       </KeyboardAvoidingView>
     </AbstractBackground>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -228,17 +210,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: 24,
   },
-  logoGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 16,
-    elevation: 8,
+  logo: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 32,

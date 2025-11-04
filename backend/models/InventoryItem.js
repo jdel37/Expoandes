@@ -20,7 +20,6 @@ const inventoryItemSchema = new mongoose.Schema({
   },
   sku: {
     type: String,
-    unique: true,
     sparse: true,
     trim: true,
     uppercase: true

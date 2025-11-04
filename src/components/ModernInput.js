@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import colors from '../theme/colors';
+import { useApp } from '../context/AppContext';
 
 export default function ModernInput({
   label,
@@ -19,6 +19,8 @@ export default function ModernInput({
   inputStyle = {},
   ...props
 }) {
+  const { theme } = useApp();
+  const styles = getStyles(theme);
   const [isFocused, setIsFocused] = useState(false);
   const [isSecure, setIsSecure] = useState(secureTextEntry);
 
@@ -39,7 +41,7 @@ export default function ModernInput({
           <Feather 
             name={icon} 
             size={20} 
-            color={isFocused ? colors.primary : colors.textMuted} 
+            color={isFocused ? theme.primary : theme.textMuted} 
             style={styles.leftIcon} 
           />
         )}
@@ -47,7 +49,7 @@ export default function ModernInput({
         <TextInput
           style={[styles.input, inputStyle]}
           placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={isSecure}
@@ -63,7 +65,7 @@ export default function ModernInput({
             <Feather 
               name={isSecure ? 'eye-off' : 'eye'} 
               size={20} 
-              color={colors.textMuted} 
+              color={theme.textMuted} 
             />
           </TouchableOpacity>
         )}
@@ -73,7 +75,7 @@ export default function ModernInput({
             <Feather 
               name={rightIcon} 
               size={20} 
-              color={isFocused ? colors.primary : colors.textMuted} 
+              color={isFocused ? theme.primary : theme.textMuted} 
             />
           </TouchableOpacity>
         )}
@@ -84,7 +86,7 @@ export default function ModernInput({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     marginBottom: 16,
   },

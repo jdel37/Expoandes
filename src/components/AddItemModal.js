@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
+  SectionList,
   ScrollView,
   Alert,
   KeyboardAvoidingView,
@@ -13,16 +14,19 @@ import {
 import Card from './Card';
 import ModernInput from './ModernInput';
 import ModernButton from './ModernButton';
-import colors from '../theme/colors';
+import { useApp } from '../context/AppContext';
 import { Feather } from '@expo/vector-icons';
+import { formatCurrency } from '../utils/helpers';
 
-export default function AddItemModal({ 
-  visible, 
-  onClose, 
-  onAdd, 
+export default function AddItemModal({
+  visible,
+  onClose,
+  onAdd,
   type = 'inventory',
-  editItem = null 
+  editItem = null
 }) {
+  const { theme, inventory } = useApp();
+  const styles = getStyles(theme);
   const getInitialState = () => ({
     name: editItem?.name || '',
     quantity: editItem?.quantity?.toString() || '',
@@ -30,33 +34,39 @@ export default function AddItemModal({
     sellingPrice: editItem?.sellingPrice?.toString() || '',
     unit: editItem?.unit || 'unidad',
     category: editItem?.category || '',
-    customer: editItem?.customer || '',
-    total: editItem?.total?.toString() || '',
-    status: editItem?.status || 'Pendiente',
-    items: editItem?.items?.toString() || '',
+    customer: editItem?.customer?.name || '',
+    status: editItem?.status || 'pending',
   });
-
+  
   const [formData, setFormData] = useState(getInitialState());
-
+  const [selectedItems, setSelectedItems] = useState([]);
+  
   useEffect(() => {
     if (visible) {
       setFormData(getInitialState());
+      setSelectedItems(editItem?.items || []);
     }
   }, [visible, editItem]);
-
+  
   const [errors, setErrors] = useState({});
-
+  
   const categories = ['Bebidas', 'Snacks', 'Comida', 'Postres', 'Ingredientes', 'Otros'];
-  const orderStatuses = ['Pendiente', 'En Proceso', 'Entregado', 'Cancelado'];
-
+  const orderStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+  
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'El nombre es requerido';
-    }
-
-    if (type === 'inventory') {
+    
+    if (type === 'order') {
+      if (!formData.customer.trim()) {
+        newErrors.customer = 'El cliente es requerido';
+      }
+      if (selectedItems.length === 0) {
+        newErrors.items = 'Debe seleccionar al menos un producto';
+      }
+    } else {
+      if (!formData.name.trim()) {
+        newErrors.name = 'El nombre es requerido';
+      }
       if (!formData.quantity || isNaN(formData.quantity) || parseFloat(formData.quantity) < 0) {
         newErrors.quantity = 'La cantidad debe ser un número válido';
       }
@@ -72,26 +82,18 @@ export default function AddItemModal({
       if (!formData.category) {
         newErrors.category = 'La categoría es requerida';
       }
-    } else if (type === 'order') {
-      if (!formData.customer.trim()) {
-        newErrors.customer = 'El cliente es requerido';
-      }
-      if (!formData.total || isNaN(formData.total) || parseFloat(formData.total) < 0) {
-        newErrors.total = 'El total debe ser un número válido';
-      }
-      if (!formData.items || isNaN(formData.items) || parseFloat(formData.items) < 1) {
-        newErrors.items = 'La cantidad de productos debe ser al menos 1';
-      }
     }
-
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
+  
   const handleSubmit = () => {
     if (!validateForm()) return;
+    
+    const total = selectedItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
-    const itemData = type === 'inventory' 
+    const itemData = type === 'inventory'
       ? {
           name: formData.name.trim(),
           quantity: parseInt(formData.quantity),
@@ -101,37 +103,42 @@ export default function AddItemModal({
           category: formData.category
         }
       : {
-          customer: formData.customer.trim(),
-          total: parseFloat(formData.total),
+          customer: { name: formData.customer.trim() },
+          type: 'dine-in',
+          items: selectedItems.map(i => ({ inventoryItem: i.inventoryItem, quantity: i.quantity })),
           status: formData.status,
-          items: parseInt(formData.items),
-          time: new Date().toLocaleTimeString('es-ES', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          })
         };
-
+    
     onAdd(itemData);
     handleClose();
   };
-
+  
   const handleClose = () => {
-    setFormData({
-      name: '',
-      quantity: '',
-      costPrice: '',
-      sellingPrice: '',
-      unit: 'unidad',
-      category: '',
-      customer: '',
-      total: '',
-      status: 'Pendiente',
-      items: '',
-    });
+    setFormData(getInitialState());
+    setSelectedItems([]);
     setErrors({});
     onClose();
   };
 
+  const handleAddItemToOrder = (item) => {
+    const existingItem = selectedItems.find(i => i.inventoryItem === item.id);
+    if (existingItem) {
+      return;
+    }
+    setSelectedItems([...selectedItems, { inventoryItem: item.id, name: item.name, quantity: 1, unitPrice: item.sellingPrice }]);
+  };
+
+  const handleUpdateQuantity = (itemId, newQuantity) => {
+    if (newQuantity < 1) {
+      return;
+    }
+    setSelectedItems(selectedItems.map(i => i.inventoryItem === itemId ? { ...i, quantity: newQuantity } : i));
+  };
+
+  const handleRemoveItemFromOrder = (itemId) => {
+    setSelectedItems(selectedItems.filter(i => i.inventoryItem !== itemId));
+  };
+  
   const getTitle = () => {
     if (editItem) {
       return type === 'inventory' ? 'Editar Producto' : 'Editar Pedido';
@@ -139,6 +146,50 @@ export default function AddItemModal({
     return type === 'inventory' ? 'Agregar Producto' : 'Nuevo Pedido';
   };
 
+  const sections = [
+    { title: 'Productos Seleccionados', data: selectedItems, type: 'selected' },
+    { title: 'Productos de Inventario', data: inventory, type: 'inventory' },
+  ];
+
+  const renderSectionHeader = ({ section: { title, data, type } }) => {
+    if (type === 'selected' && data.length === 0) {
+      return null;
+    }
+    return <Text style={styles.categoryLabel}>{title}</Text>;
+  };
+
+  const renderItem = ({ item, section }) => {
+    if (section.type === 'selected') {
+      return (
+        <View style={styles.itemRow}>
+          <Text style={styles.itemName}>{item.name}</Text>
+          <View style={styles.quantityContainer}>
+            <TouchableOpacity onPress={() => handleUpdateQuantity(item.inventoryItem, item.quantity - 1)}>
+              <Feather name="minus-circle" size={24} color={theme.textMuted} />
+            </TouchableOpacity>
+            <Text style={styles.itemQuantity}>{item.quantity}</Text>
+            <TouchableOpacity onPress={() => handleUpdateQuantity(item.inventoryItem, item.quantity + 1)}>
+              <Feather name="plus-circle" size={24} color={theme.primary} />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={() => handleRemoveItemFromOrder(item.inventoryItem)}>
+            <Feather name="trash-2" size={24} color={theme.error} />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.itemRow}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemPrice}>{formatCurrency(item.sellingPrice)}</Text>
+        <TouchableOpacity onPress={() => handleAddItemToOrder(item)}>
+          <Feather name="plus-circle" size={24} color={theme.primary} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+  
   return (
     <Modal
       visible={visible}
@@ -146,22 +197,22 @@ export default function AddItemModal({
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Feather name="x" size={24} color={colors.text} />
+            <Feather name="x" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={styles.title}>{getTitle()}</Text>
           <View style={styles.placeholder} />
         </View>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <Card variant="elevated" title="Información" subtitle="Completa los datos requeridos">
-            {type === 'inventory' ? (
-              <>
+        
+        <View style={styles.content}>
+          {type === 'inventory' ? (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Card variant="elevated" title="Información" subtitle="Completa los datos requeridos">
                 <ModernInput
                   label="Nombre del Producto"
                   placeholder="Ej: Gaseosa 350ml"
@@ -170,7 +221,7 @@ export default function AddItemModal({
                   error={errors.name}
                   icon="package"
                 />
-
+                
                 <View style={styles.row}>
                   <View style={styles.halfWidth}>
                     <ModernInput
@@ -194,7 +245,7 @@ export default function AddItemModal({
                     />
                   </View>
                 </View>
-
+                
                 <View style={styles.row}>
                   <View style={styles.halfWidth}>
                     <ModernInput
@@ -219,7 +270,7 @@ export default function AddItemModal({
                     />
                   </View>
                 </View>
-
+                
                 <View style={styles.categoryContainer}>
                   <Text style={styles.categoryLabel}>Categoría</Text>
                   <View style={styles.categoryGrid}>
@@ -245,69 +296,54 @@ export default function AddItemModal({
                     <Text style={styles.errorText}>{errors.category}</Text>
                   )}
                 </View>
-              </>
-            ) : (
-              <>
-                <ModernInput
-                  label="Cliente/Mesa"
-                  placeholder="Ej: Mesa 1, Domicilio, Juan Pérez"
-                  value={formData.customer}
-                  onChangeText={(text) => setFormData({ ...formData, customer: text })}
-                  error={errors.customer}
-                  icon="user"
-                />
-
-                <View style={styles.row}>
-                  <View style={styles.halfWidth}>
-                    <ModernInput
-                      label="Total"
-                      placeholder="25000"
-                      value={formData.total}
-                      onChangeText={(text) => setFormData({ ...formData, total: text })}
-                      keyboardType="numeric"
-                      error={errors.total}
-                      icon="dollar-sign"
-                    />
-                  </View>
-                  <View style={styles.halfWidth}>
-                    <ModernInput
-                      label="Productos"
-                      placeholder="3"
-                      value={formData.items}
-                      onChangeText={(text) => setFormData({ ...formData, items: text })}
-                      keyboardType="numeric"
-                      error={errors.items}
-                      icon="shopping-cart"
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.statusContainer}>
-                  <Text style={styles.statusLabel}>Estado</Text>
-                  <View style={styles.statusGrid}>
-                    {orderStatuses.map((status) => (
-                      <TouchableOpacity
-                        key={status}
-                        style={[
-                          styles.statusButton,
-                          formData.status === status && styles.statusButtonActive
-                        ]}
-                        onPress={() => setFormData({ ...formData, status })}
-                      >
-                        <Text style={[
-                          styles.statusText,
-                          formData.status === status && styles.statusTextActive
-                        ]}>
-                          {status}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              </>
-            )}
-          </Card>
-
+              </Card>
+            </ScrollView>
+          ) : (
+            <SectionList
+              sections={sections}
+              keyExtractor={(item, index) => item.id + index}
+              renderItem={renderItem}
+              renderSectionHeader={renderSectionHeader}
+              ListHeaderComponent={
+                <>
+                  <ModernInput
+                    label="Cliente/Mesa"
+                    placeholder="Ej: Mesa 1, Domicilio, Juan Pérez"
+                    value={formData.customer}
+                    onChangeText={(text) => setFormData({ ...formData, customer: text })}
+                    error={errors.customer}
+                    icon="user"
+                  />
+                  {editItem && (
+                    <View style={styles.statusContainer}>
+                      <Text style={styles.statusLabel}>Estado</Text>
+                      <View style={styles.statusGrid}>
+                        {orderStatuses.map((status) => (
+                          <TouchableOpacity
+                            key={status}
+                            style={[
+                              styles.statusButton,
+                              formData.status === status && styles.statusButtonActive
+                            ]}
+                            onPress={() => setFormData({ ...formData, status })}
+                          >
+                            <Text style={[
+                              styles.statusText,
+                              formData.status === status && styles.statusTextActive
+                            ]}>
+                              {status}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </>
+              }
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+          
           <View style={styles.buttonContainer}>
             <ModernButton
               title="Cancelar"
@@ -325,13 +361,13 @@ export default function AddItemModal({
               style={styles.submitButton}
             />
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -378,6 +414,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     marginBottom: 12,
+    marginTop: 16,
   },
   categoryGrid: {
     flexDirection: 'row',
@@ -455,5 +492,31 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     flex: 1,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  itemName: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  itemPrice: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemQuantity: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
   },
 });

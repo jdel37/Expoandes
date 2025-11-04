@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Dimensions } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
-import colors from '../theme/colors';
 import Card from '../components/Card';
 import AbstractBackground from '../components/AbstractBackground';
 import { Feather } from '@expo/vector-icons';
+import { useApp } from '../context/AppContext';
 
 const screenWidth = Dimensions.get('window').width - 48;
 
 export default function TPHScreen() {
+  const { theme } = useApp();
+  const styles = getStyles(theme);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
 
@@ -33,12 +35,12 @@ export default function TPHScreen() {
   };
 
   const hourlyStats = [
-    { hour: '9:00 AM', transactions: 3, efficiency: 'Baja', color: colors.textMuted },
-    { hour: '10:00 AM', transactions: 5, efficiency: 'Media', color: colors.warning },
-    { hour: '11:00 AM', transactions: 8, efficiency: 'Alta', color: colors.info },
-    { hour: '12:00 PM', transactions: 12, efficiency: 'Máxima', color: colors.success },
-    { hour: '1:00 PM', transactions: 6, efficiency: 'Media', color: colors.warning },
-    { hour: '2:00 PM', transactions: 4, efficiency: 'Baja', color: colors.textMuted },
+    { hour: '9:00 AM', transactions: 3, efficiency: 'Baja', color: theme.textMuted },
+    { hour: '10:00 AM', transactions: 5, efficiency: 'Media', color: theme.warning },
+    { hour: '11:00 AM', transactions: 8, efficiency: 'Alta', color: theme.info },
+    { hour: '12:00 PM', transactions: 12, efficiency: 'Máxima', color: theme.success },
+    { hour: '1:00 PM', transactions: 6, efficiency: 'Media', color: theme.warning },
+    { hour: '2:00 PM', transactions: 4, efficiency: 'Baja', color: theme.textMuted },
   ];
 
   const totalTransactions = data.datasets[0].data.reduce((sum, value) => sum + value, 0);
@@ -48,7 +50,7 @@ export default function TPHScreen() {
 
   return (
     <AbstractBackground>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>TPH</Text>
@@ -66,11 +68,11 @@ export default function TPHScreen() {
                 width={screenWidth}
                 height={220}
                 chartConfig={{
-                  backgroundColor: colors.surface,
-                  backgroundGradientFrom: colors.surface,
-                  backgroundGradientTo: colors.surface,
-                  color: (opacity = 1) => colors.primary,
-                  labelColor: () => colors.textMuted,
+                  backgroundColor: theme.surface,
+                  backgroundGradientFrom: theme.surface,
+                  backgroundGradientTo: theme.surface,
+                  color: (opacity = 1) => theme.primary,
+                  labelColor: () => theme.textMuted,
                   decimalPlaces: 0,
                   barPercentage: 0.7,
                 }}
@@ -83,8 +85,8 @@ export default function TPHScreen() {
           <Card variant="elevated" title="Resumen del Día" subtitle="Métricas de productividad">
             <View style={styles.summaryContainer}>
               <View style={styles.summaryItem}>
-                <View style={[styles.summaryIcon, { backgroundColor: colors.primary + '15' }]}>
-                  <Feather name="activity" size={20} color={colors.primary} />
+                <View style={[styles.summaryIcon, { backgroundColor: theme.primary + '15' }]}>
+                  <Feather name="activity" size={20} color={theme.primary} />
                 </View>
                 <View style={styles.summaryInfo}>
                   <Text style={styles.summaryLabel}>Total Transacciones</Text>
@@ -93,8 +95,8 @@ export default function TPHScreen() {
               </View>
               
               <View style={styles.summaryItem}>
-                <View style={[styles.summaryIcon, { backgroundColor: colors.success + '15' }]}>
-                  <Feather name="clock" size={20} color={colors.success} />
+                <View style={[styles.summaryIcon, { backgroundColor: theme.success + '15' }]}>
+                  <Feather name="clock" size={20} color={theme.success} />
                 </View>
                 <View style={styles.summaryInfo}>
                   <Text style={styles.summaryLabel}>Hora Pico</Text>
@@ -125,7 +127,7 @@ export default function TPHScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,

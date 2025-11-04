@@ -6,11 +6,12 @@ import ModernButton from '../components/ModernButton';
 import AbstractBackground from '../components/AbstractBackground';
 import AddItemModal from '../components/AddItemModal';
 import { useApp } from '../context/AppContext';
-import colors from '../theme/colors';
 import { Feather } from '@expo/vector-icons';
+import { formatCurrency } from '../utils/helpers';
 
 export default function InventoryScreen() {
-  const { inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getStockStatus } = useApp();
+  const { theme, inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getStockStatus } = useApp();
+  const styles = getStyles(theme);
   const { user } = useContext(AuthContext);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
@@ -91,7 +92,7 @@ export default function InventoryScreen() {
 
   return (
     <AbstractBackground>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>Inventario</Text>
@@ -118,7 +119,7 @@ export default function InventoryScreen() {
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>
-                  ${inventory.reduce((sum, item) => sum + (item.quantity * item.costPrice), 0).toLocaleString()}
+                  {formatCurrency(inventory.reduce((sum, item) => sum + (item.quantity * item.costPrice), 0))}
                 </Text>
                 <Text style={styles.statLabel}>Valor Total</Text>
               </View>
@@ -142,17 +143,17 @@ export default function InventoryScreen() {
                           style={styles.qtyButton}
                           onPress={() => handleUpdateQuantity(item, item.quantity - 1)}
                         >
-                          <Feather name="minus" size={16} color={colors.textMuted} />
+                          <Feather name="minus" size={16} color={theme.textMuted} />
                         </TouchableOpacity>
                         <Text style={styles.itemQty}>{item.quantity}</Text>
                         <TouchableOpacity 
                           style={styles.qtyButton}
                           onPress={() => handleUpdateQuantity(item, item.quantity + 1)}
                         >
-                          <Feather name="plus" size={16} color={colors.textMuted} />
+                          <Feather name="plus" size={16} color={theme.textMuted} />
                         </TouchableOpacity>
                       </View>
-                      <Text style={styles.itemCost}>${item.costPrice.toLocaleString()}</Text>
+                      <Text style={styles.itemCost}>{formatCurrency(item.costPrice)}</Text>
                     </View>
                   </View>
                   <View style={styles.itemActions}>
@@ -166,13 +167,13 @@ export default function InventoryScreen() {
                         style={styles.actionButton}
                         onPress={() => handleEditItem(item)}
                       >
-                        <Feather name="edit" size={16} color={colors.primary} />
+                        <Feather name="edit" size={16} color={theme.primary} />
                       </TouchableOpacity>
                       <TouchableOpacity 
                         style={styles.actionButton}
                         onPress={() => handleDeleteItem(item)}
                       >
-                        <Feather name="trash-2" size={16} color={colors.error} />
+                        <Feather name="trash-2" size={16} color={theme.error} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -209,7 +210,7 @@ export default function InventoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,

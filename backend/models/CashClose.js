@@ -27,17 +27,14 @@ const cashCloseSchema = new mongoose.Schema({
   },
   closingCash: {
     type: Number,
-    required: [true, 'El dinero de cierre es requerido'],
     min: [0, 'El dinero de cierre no puede ser negativo']
   },
   expectedCash: {
     type: Number,
-    required: [true, 'El dinero esperado es requerido'],
     min: [0, 'El dinero esperado no puede ser negativo']
   },
   difference: {
-    type: Number,
-    required: true
+    type: Number
   },
   sales: {
     cash: {
@@ -57,7 +54,6 @@ const cashCloseSchema = new mongoose.Schema({
     },
     total: {
       type: Number,
-      required: true,
       min: [0, 'El total de ventas no puede ser negativo']
     }
   },
@@ -85,10 +81,6 @@ const cashCloseSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: [0, 'El total de gastos no puede ser negativo']
-  },
-  netSales: {
-    type: Number,
-    required: true
   },
   status: {
     type: String,

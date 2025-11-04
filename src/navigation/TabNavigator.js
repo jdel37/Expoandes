@@ -7,9 +7,9 @@ import DashboardScreen from '../screens/DashboardScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import CashCloseScreen from '../screens/CashCloseScreen';
 import ProjectionsScreen from '../screens/ProjectionsScreen';
-import OrdersScreen from '../screens/OrdersScreen';
 import TPHScreen from '../screens/TPHScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import OrdersScreen from '../screens/OrdersScreen';
 import colors from '../theme/colors';
 
 const Tab = createBottomTabNavigator();

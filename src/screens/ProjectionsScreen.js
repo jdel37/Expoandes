@@ -1,46 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Dimensions } from 'react-native';
-import colors from '../theme/colors';
 import Card from '../components/Card';
 import AbstractBackground from '../components/AbstractBackground';
 import { LineChart } from 'react-native-chart-kit';
 import { Feather } from '@expo/vector-icons';
+import { useApp } from '../context/AppContext';
+import apiService from '../services/apiService';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { formatCurrency } from '../utils/helpers';
 
 const screenWidth = Dimensions.get('window').width - 48;
 
 export default function ProjectionsScreen() {
+  const { theme } = useApp();
+  const styles = getStyles(theme);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
+  const [loading, setLoading] = useState(true);
+  const [projectionsData, setProjectionsData] = useState(null);
 
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  useEffect(() => {
+    const fetchProjections = async () => {
+      try {
+        setLoading(true);
+        const data = await apiService.getProjections('week');
+        setProjectionsData(data);
+      } catch (error) {
+        console.error('Error fetching projections:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjections();
   }, []);
 
-  const data = {
-    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-    datasets: [{ data: [120, 150, 180, 130, 210, 240, 190] }],
+  React.useEffect(() => {
+    if (!loading) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [loading]);
+
+  if (loading || !projectionsData?.data) {
+    return <LoadingSpinner text="Cargando proyecciones..." />;
+  }
+
+  const { historicalData, projections: projectionStats } = projectionsData.data;
+
+  const chartData = {
+    labels: historicalData.map(d => `${d._id.day}/${d._id.month}`),
+    datasets: [{ data: historicalData.map(d => d.totalRevenue) }],
   };
 
+  const bestDay = historicalData.reduce((max, d) => d.totalRevenue > max.totalRevenue ? d : max, historicalData[0] || { _id: {}, totalRevenue: 0 });
+  const averageSales = historicalData.reduce((sum, d) => sum + d.totalRevenue, 0) / (historicalData.length || 1);
+
   const weeklyStats = [
-    { label: 'Mejor día', value: 'Sábado', amount: '$240,000', color: colors.success },
-    { label: 'Promedio', value: 'Diario', amount: '$175,000', color: colors.primary },
-    { label: 'Proyección', value: 'Mensual', amount: '$5,250,000', color: colors.info },
+    { label: 'Mejor día', value: bestDay._id.day ? `${bestDay._id.day}/${bestDay._id.month}` : 'N/A', amount: formatCurrency(bestDay.totalRevenue), color: theme.success },
+    { label: 'Promedio Diario', value: '', amount: formatCurrency(averageSales), color: theme.primary },
+    { label: 'Proyección Próxima Semana', value: '', amount: formatCurrency(projectionStats.nextPeriod), color: theme.info },
   ];
 
   return (
     <AbstractBackground>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>Proyecciones</Text>
@@ -51,25 +85,29 @@ export default function ProjectionsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <Card variant="elevated" title="Tendencia Semanal" subtitle="Ventas de los últimos 7 días">
+          <Card variant="elevated" title="Tendencia Semanal" subtitle="Ventas de los últimos 30 días">
             <View style={styles.chartContainer}>
-              <LineChart
-                data={data}
-                width={screenWidth}
-                height={220}
-                chartConfig={{
-                  backgroundColor: colors.surface,
-                  backgroundGradientFrom: colors.surface,
-                  backgroundGradientTo: colors.surface,
-                  color: (opacity = 1) => colors.primary,
-                  labelColor: () => colors.textMuted,
-                  strokeWidth: 3,
-                  decimalPlaces: 0,
-                  formatYLabel: (value) => `$${value}k`,
-                }}
-                bezier
-                style={styles.chart}
-              />
+              {chartData.datasets[0].data.length > 0 ? (
+                <LineChart
+                  data={chartData}
+                  width={screenWidth}
+                  height={220}
+                  chartConfig={{
+                    backgroundColor: theme.surface,
+                    backgroundGradientFrom: theme.surface,
+                    backgroundGradientTo: theme.surface,
+                    color: (opacity = 1) => theme.primary,
+                    labelColor: () => theme.textMuted,
+                    strokeWidth: 3,
+                    decimalPlaces: 0,
+                    formatYLabel: (value) => formatCurrency(value, true),
+                  }}
+                  bezier
+                  style={styles.chart}
+                />
+              ) : (
+                <Text style={styles.noDataText}>No hay suficientes datos para mostrar la gráfica.</Text>
+              )}
             </View>
           </Card>
 
@@ -78,7 +116,7 @@ export default function ProjectionsScreen() {
               <View key={index} style={styles.statRow}>
                 <View style={styles.statInfo}>
                   <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statValue}>{stat.value}</Text>
+                  {stat.value ? <Text style={styles.statValue}>{stat.value}</Text> : null}
                 </View>
                 <View style={[styles.statAmount, { backgroundColor: stat.color + '15' }]}>
                   <Text style={[styles.statAmountText, { color: stat.color }]}>
@@ -92,21 +130,21 @@ export default function ProjectionsScreen() {
           <Card variant="outlined" title="Insights" subtitle="Análisis automático de datos">
             <View style={styles.insightContainer}>
               <View style={styles.insightItem}>
-                <Feather name="trending-up" size={20} color={colors.success} />
+                <Feather name="trending-up" size={20} color={theme.success} />
                 <Text style={styles.insightText}>
-                  Las ventas han aumentado un 15% esta semana
+                  La tendencia de ventas es {projectionStats.trend === 'increasing' ? 'creciente' : (projectionStats.trend === 'decreasing' ? 'decreciente' : 'estable')}.
                 </Text>
               </View>
               <View style={styles.insightItem}>
-                <Feather name="calendar" size={20} color={colors.info} />
+                <Feather name="calendar" size={20} color={theme.info} />
                 <Text style={styles.insightText}>
-                  Los fines de semana son los más productivos
+                  La proyección para la próxima semana es de {formatCurrency(projectionStats.nextPeriod)}.
                 </Text>
               </View>
               <View style={styles.insightItem}>
-                <Feather name="target" size={20} color={colors.warning} />
+                <Feather name="target" size={20} color={theme.warning} />
                 <Text style={styles.insightText}>
-                  Objetivo mensual: 85% completado
+                  Confianza de la proyección: {projectionStats.confidence === 'high' ? 'Alta' : (projectionStats.confidence === 'medium' ? 'Media' : 'Baja')}
                 </Text>
               </View>
             </View>
@@ -117,7 +155,7 @@ export default function ProjectionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,
@@ -148,6 +186,11 @@ const styles = StyleSheet.create({
   },
   chart: {
     borderRadius: 16,
+  },
+  noDataText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    paddingVertical: 20,
   },
   statRow: {
     flexDirection: 'row',

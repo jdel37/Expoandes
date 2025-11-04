@@ -1,14 +1,16 @@
 import React from 'react';
 import { LineChart } from 'react-native-chart-kit';
 import { Dimensions, View, Text } from 'react-native';
-import colors from '../theme/colors';
+import { useApp } from '../context/AppContext';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function Charts({ data }) {
+  const { theme } = useApp();
+
   return (
     <View style={{ alignItems: 'center', marginVertical: 20 }}>
-      <Text style={{ color: colors.primary, fontSize: 18, marginBottom: 8 }}>
+      <Text style={{ color: theme.primary, fontSize: 18, marginBottom: 8 }}>
         Tendencia de Ventas
       </Text>
       <LineChart
@@ -24,19 +26,19 @@ export default function Charts({ data }) {
         height={220}
         yAxisSuffix="k"
         chartConfig={{
-          backgroundColor: colors.background,
-          backgroundGradientFrom: colors.background,
-          backgroundGradientTo: colors.background,
+          backgroundColor: theme.background,
+          backgroundGradientFrom: theme.background,
+          backgroundGradientTo: theme.background,
           decimalPlaces: 0,
-          color: (opacity = 1) => colors.primary,
-          labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+          color: (opacity = 1) => theme.primary,
+          labelColor: (opacity = 1) => theme.text,
           style: {
             borderRadius: 16,
           },
           propsForDots: {
             r: '4',
             strokeWidth: '2',
-            stroke: colors.primary,
+            stroke: theme.primary,
           },
         }}
         bezier

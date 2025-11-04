@@ -1,18 +1,20 @@
 import React, { useContext, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Alert, Switch } from 'react-native';
-import colors from '../theme/colors';
 import Card from '../components/Card';
 import ModernButton from '../components/ModernButton';
 import AbstractBackground from '../components/AbstractBackground';
 import { AuthContext } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 export default function SettingsScreen() {
   const { logout, user } = useContext(AuthContext);
-  const { notifications, darkMode, toggleNotifications, toggleDarkMode, setLanguage } = useApp();
+  const { theme, notifications, darkMode, toggleNotifications, toggleDarkMode, setLanguage } = useApp();
+  const styles = getStyles(theme);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
+  const navigation = useNavigation();
 
   React.useEffect(() => {
     Animated.parallel([
@@ -32,7 +34,7 @@ export default function SettingsScreen() {
   const handleLogout = () => {
     Alert.alert('Cerrar sesión', '¿Seguro que quieres salir?', [
       { text: 'Cancelar' },
-      { text: 'Salir', onPress: logout },
+      { text: 'Salir', onPress: () => { logout(); navigation.replace('Login'); } },
     ]);
   };
 
@@ -70,7 +72,7 @@ export default function SettingsScreen() {
       title: 'Notificaciones',
       subtitle: 'Recibe alertas importantes',
       icon: 'bell',
-      color: colors.info,
+      color: theme.info,
       type: 'switch',
       value: notifications,
       onPress: toggleNotifications
@@ -79,7 +81,7 @@ export default function SettingsScreen() {
       title: 'Modo Oscuro',
       subtitle: 'Tema oscuro para mejor visibilidad',
       icon: 'moon',
-      color: colors.secondary,
+      color: theme.secondary,
       type: 'switch',
       value: darkMode,
       onPress: toggleDarkMode
@@ -88,7 +90,7 @@ export default function SettingsScreen() {
       title: 'Idioma',
       subtitle: 'Español',
       icon: 'globe',
-      color: colors.warning,
+      color: theme.warning,
       type: 'arrow',
       onPress: handleLanguageChange
     },
@@ -96,7 +98,7 @@ export default function SettingsScreen() {
       title: 'Sincronización',
       subtitle: 'Última sincronización: hace 5 min',
       icon: 'refresh-cw',
-      color: colors.primary,
+      color: theme.primary,
       type: 'arrow',
       onPress: handleSync
     },
@@ -104,7 +106,7 @@ export default function SettingsScreen() {
 
   return (
     <AbstractBackground>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>Configuración</Text>
@@ -118,7 +120,7 @@ export default function SettingsScreen() {
           <Card variant="elevated" title="Perfil de Usuario" subtitle="Información de tu cuenta">
             <View style={styles.profileContainer}>
               <View style={styles.avatarContainer}>
-                <Feather name="user" size={24} color={colors.white} />
+                <Feather name="user" size={24} color={theme.white} />
               </View>
               <View style={styles.profileInfo}>
                 <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
@@ -143,11 +145,11 @@ export default function SettingsScreen() {
                     <Switch
                       value={option.value}
                       onValueChange={option.onPress}
-                      trackColor={{ false: colors.gray300, true: option.color }}
-                      thumbColor={option.value ? colors.white : colors.gray500}
+                      trackColor={{ false: theme.gray300, true: option.color }}
+                      thumbColor={option.value ? theme.white : theme.gray500}
                     />
                   ) : (
-                    <Feather name="chevron-right" size={20} color={colors.textMuted} />
+                    <Feather name="chevron-right" size={20} color={theme.textMuted} />
                   )}
                 </View>
               </View>
@@ -185,7 +187,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,
@@ -301,3 +303,4 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
 });
+

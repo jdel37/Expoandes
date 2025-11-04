@@ -1,19 +1,23 @@
 import React from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import colors from '../theme/colors';
+import { useApp } from '../context/AppContext';
 
 export default function LoadingSpinner({ 
   size = 'large', 
-  color = colors.primary, 
+  color,
   text, 
   overlay = false,
   style = {} 
 }) {
+  const { theme } = useApp();
+  const styles = getStyles(theme);
+  const spinnerColor = color || theme.primary;
+
   const content = (
     <View style={[styles.container, overlay && styles.overlay, style]}>
       <View style={styles.spinnerContainer}>
-        <ActivityIndicator size={size} color={color} />
+        <ActivityIndicator size={size} color={spinnerColor} />
         {text && <Text style={styles.text}>{text}</Text>}
       </View>
     </View>
@@ -23,7 +27,7 @@ export default function LoadingSpinner({
     return (
       <View style={StyleSheet.absoluteFillObject}>
         <LinearGradient
-          colors={[colors.background + '90', colors.backgroundSecondary + '90']}
+          colors={[theme.background + '90', theme.backgroundSecondary + '90']}
           style={StyleSheet.absoluteFillObject}
         />
         {content}
@@ -34,7 +38,7 @@ export default function LoadingSpinner({
   return content;
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',

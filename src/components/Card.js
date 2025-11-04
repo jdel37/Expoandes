@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import colors from '../theme/colors';
+import { useApp } from '../context/AppContext';
 
 export default function Card({ 
   title, 
@@ -12,6 +12,8 @@ export default function Card({
   gradient = false,
   style = {}
 }) {
+  const { theme } = useApp();
+  const styles = getStyles(theme);
   const CardWrapper = onPress ? TouchableOpacity : View;
   
   const getCardStyle = () => {
@@ -39,7 +41,7 @@ export default function Card({
     return (
       <CardWrapper onPress={onPress} style={[styles.cardContainer, style]}>
         <LinearGradient
-          colors={colors.gradientSecondary}
+          colors={theme.gradientSecondary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.gradientCard}
@@ -57,7 +59,7 @@ export default function Card({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   cardContainer: {
     marginBottom: 20,
   },
