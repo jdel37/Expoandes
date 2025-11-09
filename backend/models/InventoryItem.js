@@ -128,7 +128,7 @@ inventoryItemSchema.statics.getInventorySummary = function(restaurantId) {
   return this.aggregate([
     {
       $match: {
-        restaurant: new mongoose.Types.ObjectId(restaurantId),
+        restaurant: restaurantId,
         isActive: true
       }
     },

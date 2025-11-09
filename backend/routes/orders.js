@@ -199,6 +199,7 @@ router.post('/', [
         name: inventoryItem.name,
         quantity: item.quantity,
         unitPrice: inventoryItem.sellingPrice,
+        cost: inventoryItem.costPrice, // Add cost here
         totalPrice: inventoryItem.sellingPrice * item.quantity
       });
     }
@@ -217,14 +218,6 @@ router.post('/', [
 
     const order = new Order(orderData);
     await order.save();
-
-    // Update inventory quantities
-    for (const item of items) {
-      await InventoryItem.findByIdAndUpdate(
-        item.inventoryItem,
-        { $inc: { quantity: -item.quantity } }
-      );
-    }
 
     // Populate order for response
     await order.populate([

@@ -7,7 +7,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import CashCloseScreen from '../screens/CashCloseScreen';
 import ProjectionsScreen from '../screens/ProjectionsScreen';
-import TPHScreen from '../screens/TPHScreen';
+
 import SettingsScreen from '../screens/SettingsScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import colors from '../theme/colors';
@@ -54,9 +54,7 @@ export default function TabNavigator() {
             case 'Orders':
               iconName = 'shopping-cart';
               break;
-            case 'TPH':
-              iconName = 'clock';
-              break;
+
             case 'Settings':
               iconName = 'settings';
               break;
@@ -111,13 +109,7 @@ export default function TabNavigator() {
           title: 'Pedidos',
         }}
       />
-      <Tab.Screen
-        name="TPH"
-        component={TPHScreen}
-        options={{
-          title: 'TPH',
-        }}
-      />
+
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}

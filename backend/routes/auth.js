@@ -221,7 +221,9 @@ router.put('/update-preferences', [
   auth,
   body('notifications').optional().isBoolean().withMessage('Notifications debe ser booleano'),
   body('darkMode').optional().isBoolean().withMessage('DarkMode debe ser booleano'),
-  body('language').optional().isIn(['es', 'en']).withMessage('Idioma inválido')
+  body('language').optional().isIn(['es', 'en']).withMessage('Idioma inválido'),
+  body('lowStockThreshold').optional().isNumeric().withMessage('El umbral de stock bajo debe ser un número'),
+  body('mediumStockThreshold').optional().isNumeric().withMessage('El umbral de stock medio debe ser un número')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -233,12 +235,14 @@ router.put('/update-preferences', [
       });
     }
 
-    const { notifications, darkMode, language } = req.body;
+    const { notifications, darkMode, language, lowStockThreshold, mediumStockThreshold } = req.body;
     const updateData = {};
 
     if (notifications !== undefined) updateData['preferences.notifications'] = notifications;
     if (darkMode !== undefined) updateData['preferences.darkMode'] = darkMode;
     if (language !== undefined) updateData['preferences.language'] = language;
+    if (lowStockThreshold !== undefined) updateData['preferences.lowStockThreshold'] = lowStockThreshold;
+    if (mediumStockThreshold !== undefined) updateData['preferences.mediumStockThreshold'] = mediumStockThreshold;
 
     const user = await User.findByIdAndUpdate(
       req.user._id,

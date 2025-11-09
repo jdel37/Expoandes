@@ -37,6 +37,8 @@ export default function ModernButton({
         return [...baseStyle, styles.ghost, style];
       case 'gradient':
         return [...baseStyle, styles.gradient, style];
+      case 'destructive':
+        return [...baseStyle, styles.destructive, style];
       default:
         return [...baseStyle, style];
     }
@@ -53,6 +55,8 @@ export default function ModernButton({
       case 'primary':
       case 'gradient':
         return [...baseTextStyle, styles.primaryText, textStyle];
+      case 'destructive':
+        return [...baseTextStyle, styles.destructiveText, textStyle];
       case 'secondary':
         return [...baseTextStyle, styles.secondaryText, textStyle];
       case 'outline':
@@ -179,6 +183,14 @@ const getStyles = (colors) => StyleSheet.create({
   gradient: {
     backgroundColor: 'transparent',
   },
+  destructive: {
+    backgroundColor: colors.error,
+    shadowColor: colors.error,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
   disabled: {
     backgroundColor: colors.gray300,
     shadowOpacity: 0,
@@ -201,6 +213,9 @@ const getStyles = (colors) => StyleSheet.create({
   },
   
   primaryText: {
+    color: colors.white,
+  },
+  destructiveText: {
     color: colors.white,
   },
   secondaryText: {

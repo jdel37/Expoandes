@@ -1,156 +1,149 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Dimensions } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { View, Text, StyleSheet, ScrollView, StatusBar, Dimensions } from 'react-native';
 import Card from '../components/Card';
 import AbstractBackground from '../components/AbstractBackground';
-import { LineChart } from 'react-native-chart-kit';
+import Charts from '../components/Charts';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
+import { AuthContext } from '../context/AuthContext';
 import apiService from '../services/apiService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { formatCurrency } from '../utils/helpers';
-
-const screenWidth = Dimensions.get('window').width - 48;
+import ModernInput from '../components/ModernInput';
+import ModernButton from '../components/ModernButton';
 
 export default function ProjectionsScreen() {
-  const { theme } = useApp();
+  const { theme, reloadData } = useApp();
   const styles = getStyles(theme);
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(30));
-  const [loading, setLoading] = useState(true);
-  const [projectionsData, setProjectionsData] = useState(null);
+  const [utilityChartData, setUtilityChartData] = useState({
+    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+    values: [0, 0, 0, 0, 0, 0, 0],
+  });
 
-  useEffect(() => {
-    const fetchProjections = async () => {
-      try {
-        setLoading(true);
-        const data = await apiService.getProjections('week');
-        setProjectionsData(data);
-      } catch (error) {
-        console.error('Error fetching projections:', error);
-      } finally {
-        setLoading(false);
+  const [proveedoresNominaImpuestos, setProveedoresNominaImpuestos] = useState('');
+  const [gastosOperativos, setGastosOperativos] = useState('');
+  const [gastosFinancieros, setGastosFinancieros] = useState('');
+
+  const calculateProjectedDailyUtility = async () => {
+    try {
+      const monthlyExpenses = 
+        (parseFloat(proveedoresNominaImpuestos) || 0) +
+        (parseFloat(gastosOperativos) || 0) +
+        (parseFloat(gastosFinancieros) || 0);
+      
+      const dailyExpense = monthlyExpenses / 30;
+
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 6); // Last 7 days
+
+      const response = await apiService.getSalesAnalytics(startDate, endDate, 'day');
+      
+      const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const dailyData = new Map();
+
+      // Initialize data for the last 7 days with 0 profit
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        const dateString = date.toISOString().split('T')[0];
+        dailyData.set(dateString, {
+          label: daysOfWeek[date.getDay()],
+          value: 0
+        });
       }
-    };
 
-    fetchProjections();
-  }, []);
+      response.data.salesData.forEach(item => {
+        const date = new Date(item._id);
+        const dateString = date.toISOString().split('T')[0];
+        if (dailyData.has(dateString)) {
+          // Subtract dailyExpense from totalProfit to get projected daily utility
+          dailyData.get(dateString).value = item.totalProfit - dailyExpense;
+        }
+      });
 
-  React.useEffect(() => {
-    if (!loading) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      const labels = [];
+      const values = [];
+      // Iterate through the map in chronological order of dates
+      Array.from(dailyData.keys()).sort().forEach(dateString => {
+        const data = dailyData.get(dateString);
+        labels.push(data.label);
+        values.push(data.value);
+      });
+
+      setUtilityChartData({ labels, values });
+
+    } catch (error) {
+      console.error('Error calculating projected daily utility:', error);
+      // Optionally, set an error state or show an alert
     }
-  }, [loading]);
-
-  if (loading || !projectionsData?.data) {
-    return <LoadingSpinner text="Cargando proyecciones..." />;
-  }
-
-  const { historicalData, projections: projectionStats } = projectionsData.data;
-
-  const chartData = {
-    labels: historicalData.map(d => `${d._id.day}/${d._id.month}`),
-    datasets: [{ data: historicalData.map(d => d.totalRevenue) }],
   };
 
-  const bestDay = historicalData.reduce((max, d) => d.totalRevenue > max.totalRevenue ? d : max, historicalData[0] || { _id: {}, totalRevenue: 0 });
-  const averageSales = historicalData.reduce((sum, d) => sum + d.totalRevenue, 0) / (historicalData.length || 1);
-
-  const weeklyStats = [
-    { label: 'Mejor día', value: bestDay._id.day ? `${bestDay._id.day}/${bestDay._id.month}` : 'N/A', amount: formatCurrency(bestDay.totalRevenue), color: theme.success },
-    { label: 'Promedio Diario', value: '', amount: formatCurrency(averageSales), color: theme.primary },
-    { label: 'Proyección Próxima Semana', value: '', amount: formatCurrency(projectionStats.nextPeriod), color: theme.info },
-  ];
+  useEffect(() => {
+    // Initial fetch/calculation when component mounts
+    calculateProjectedDailyUtility();
+  }, [reloadData]); // Recalculate when reloadData changes or monthly inputs change
 
   return (
     <AbstractBackground>
       <StatusBar barStyle={theme.darkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
+      <View style={styles.container}>
+        <View style={styles.header}>
           <Text style={styles.title}>Proyecciones</Text>
-          <Text style={styles.subtitle}>Análisis de tendencias de ventas</Text>
-        </Animated.View>
+          <Text style={styles.subtitle}>Análisis de tendencias de utilidad</Text>
+        </View>
 
         <ScrollView 
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <Card variant="elevated" title="Tendencia Semanal" subtitle="Ventas de los últimos 30 días">
-            <View style={styles.chartContainer}>
-              {chartData.datasets[0].data.length > 0 ? (
-                <LineChart
-                  data={chartData}
-                  width={screenWidth}
-                  height={220}
-                  chartConfig={{
-                    backgroundColor: theme.surface,
-                    backgroundGradientFrom: theme.surface,
-                    backgroundGradientTo: theme.surface,
-                    color: (opacity = 1) => theme.primary,
-                    labelColor: () => theme.textMuted,
-                    strokeWidth: 3,
-                    decimalPlaces: 0,
-                    formatYLabel: (value) => formatCurrency(value, true),
-                  }}
-                  bezier
-                  style={styles.chart}
-                />
-              ) : (
-                <Text style={styles.noDataText}>No hay suficientes datos para mostrar la gráfica.</Text>
-              )}
+          <Charts data={utilityChartData} />
+
+          <Card variant="elevated" title="Utilidad por Pedidos Entregados" subtitle="Utilidad efectiva de los últimos 7 días">
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Total Utilidad</Text>
+              <Text style={styles.statValue}>{formatCurrency(utilityChartData.values.reduce((sum, val) => sum + val, 0))}</Text>
             </View>
           </Card>
 
-          <Card variant="elevated" title="Estadísticas Clave" subtitle="Métricas importantes del período">
-            {weeklyStats.map((stat, index) => (
-              <View key={index} style={styles.statRow}>
-                <View style={styles.statInfo}>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  {stat.value ? <Text style={styles.statValue}>{stat.value}</Text> : null}
-                </View>
-                <View style={[styles.statAmount, { backgroundColor: stat.color + '15' }]}>
-                  <Text style={[styles.statAmountText, { color: stat.color }]}>
-                    {stat.amount}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </Card>
+          <Card variant="elevated" title="Pagos y Obligaciones Mensuales" subtitle="Monto mensual (proveedores, nómina, impuestos)">
+                      <ModernInput
+                        placeholder="Monto total mensual"
+                        keyboardType="numeric"
+                        value={proveedoresNominaImpuestos}
+                        onChangeText={setProveedoresNominaImpuestos}
+                      />
+                      </Card>
+            
+                      <Card variant="elevated" title="Gastos Operativos" subtitle="Monto mensual (renta, nómina administrativa, servicios, marketing, software, etc.)">
+                        <ModernInput
+                          placeholder="Monto total mensual"
+                          keyboardType="numeric"
+                          value={gastosOperativos}
+                          onChangeText={setGastosOperativos}
+                        />
+                      </Card>
+            
+                      <Card variant="elevated" title="Gastos Financieros" subtitle="Monto mensual (intereses, comisiones bancarias)">
+                        <ModernInput
+                          placeholder="Monto total mensual"
+                          keyboardType="numeric"
+                          value={gastosFinancieros}
+                          onChangeText={setGastosFinancieros}
+                        />
+                      </Card>
+            
+                      <ModernButton
+                        onPress={calculateProjectedDailyUtility}
+                        title="Calcular Proyección Diaria"
+                        variant="primary"
+                        style={{ marginTop: 20, marginBottom: 20 }}
+                      />
 
-          <Card variant="outlined" title="Insights" subtitle="Análisis automático de datos">
-            <View style={styles.insightContainer}>
-              <View style={styles.insightItem}>
-                <Feather name="trending-up" size={20} color={theme.success} />
-                <Text style={styles.insightText}>
-                  La tendencia de ventas es {projectionStats.trend === 'increasing' ? 'creciente' : (projectionStats.trend === 'decreasing' ? 'decreciente' : 'estable')}.
-                </Text>
-              </View>
-              <View style={styles.insightItem}>
-                <Feather name="calendar" size={20} color={theme.info} />
-                <Text style={styles.insightText}>
-                  La proyección para la próxima semana es de {formatCurrency(projectionStats.nextPeriod)}.
-                </Text>
-              </View>
-              <View style={styles.insightItem}>
-                <Feather name="target" size={20} color={theme.warning} />
-                <Text style={styles.insightText}>
-                  Confianza de la proyección: {projectionStats.confidence === 'high' ? 'Alta' : (projectionStats.confidence === 'medium' ? 'Media' : 'Baja')}
-                </Text>
-              </View>
-            </View>
-          </Card>
+
         </ScrollView>
-      </Animated.View>
+      </View>
     </AbstractBackground>
   );
 }
@@ -179,18 +172,6 @@ const getStyles = (colors) => StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 100,
-  },
-  chartContainer: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  chart: {
-    borderRadius: 16,
-  },
-  noDataText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    paddingVertical: 20,
   },
   statRow: {
     flexDirection: 'row',
@@ -223,22 +204,5 @@ const getStyles = (colors) => StyleSheet.create({
   statAmountText: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  insightContainer: {
-    paddingVertical: 20,
-  },
-  insightItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  insightText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginLeft: 12,
-    lineHeight: 20,
   },
 });

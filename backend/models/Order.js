@@ -20,6 +20,11 @@ const orderItemSchema = new mongoose.Schema({
     required: [true, 'El precio unitario es requerido'],
     min: [0, 'El precio no puede ser negativo']
   },
+  cost: {
+    type: Number,
+    required: [true, 'El costo es requerido'],
+    min: [0, 'El costo no puede ser negativo']
+  },
   totalPrice: {
     type: Number,
     required: true,
@@ -126,6 +131,9 @@ const orderSchema = new mongoose.Schema({
   completedAt: {
     type: Date
   },
+  inventoryDecrementedAt: {
+    type: Date
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -188,7 +196,7 @@ orderSchema.statics.getDailySales = function(restaurantId, date) {
   return this.aggregate([
     {
       $match: {
-        restaurant: new mongoose.Types.ObjectId(restaurantId),
+        restaurant: restaurantId,
         createdAt: { $gte: startOfDay, $lte: endOfDay },
         isActive: true,
         status: { $ne: 'cancelled' }
@@ -213,19 +221,34 @@ orderSchema.methods.updateStatus = async function(newStatus) {
   const oldStatus = this.status;
   this.status = newStatus;
   
+  if ((newStatus === 'preparing' || newStatus === 'delivered') && !this.inventoryDecrementedAt) {
+    this.inventoryDecrementedAt = new Date();
+    // Update inventory quantities
+    for (const item of this.items) {
+      await mongoose.model('InventoryItem').findByIdAndUpdate(
+        item.inventoryItem,
+        { $inc: { quantity: -item.quantity } }
+      );
+    }
+  }
+
   if (newStatus === 'delivered' && !this.completedAt) {
     this.completedAt = new Date();
     this.actualTime = Math.floor((this.completedAt - this.createdAt) / (1000 * 60));
   }
 
   // Restore inventory if order is cancelled
-  if (newStatus === 'cancelled' && oldStatus !== 'cancelled') {
-    for (const item of this.items) {
-      await mongoose.model('InventoryItem').findByIdAndUpdate(
-        item.inventoryItem,
-        { $inc: { quantity: item.quantity } }
-      );
+  if (newStatus === 'cancelled') {
+    if (this.inventoryDecrementedAt) {
+      for (const item of this.items) {
+        await mongoose.model('InventoryItem').findByIdAndUpdate(
+          item.inventoryItem,
+          { $inc: { quantity: item.quantity } }
+        );
+      }
+      this.inventoryDecrementedAt = null;
     }
+    this.isActive = false; // Set isActive to false when cancelled
   }
   
   return this.save();

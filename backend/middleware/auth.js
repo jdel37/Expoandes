@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 
 const auth = async (req, res, next) => {
   try {
@@ -45,6 +46,13 @@ const auth = async (req, res, next) => {
     // Add user to request object
     req.user = user;
     req.restaurant = user.restaurant;
+    console.log('req.restaurant:', req.restaurant);
+    if (!mongoose.Types.ObjectId.isValid(req.restaurant)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid restaurant ID'
+      });
+    }
     
     next();
   } catch (error) {

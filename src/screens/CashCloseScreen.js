@@ -9,10 +9,11 @@ import { Feather } from '@expo/vector-icons';
 import { formatCurrency } from '../utils/helpers';
 
 export default function CashCloseScreen() {
-  const { theme, cashClose, updateCashClose, closeCash } = useApp();
+  const { theme, cashClose, updateCashClose, closeCash, addCashClose } = useApp();
   const styles = getStyles(theme);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
+  const [shift, setShift] = useState('full-day'); // Default shift
 
   React.useEffect(() => {
     Animated.parallel([
@@ -28,6 +29,20 @@ export default function CashCloseScreen() {
       }),
     ]).start();
   }, []);
+
+  const handleOpenCashClose = () => {
+    const cashCloseData = {
+      shift,
+    };
+
+    addCashClose(cashCloseData)
+      .then(() => {
+        Alert.alert('Caja Abierta', 'La caja se ha abierto exitosamente.');
+      })
+      .catch(err => {
+        Alert.alert('Error al Abrir Caja', err.message || 'No se pudo abrir la caja.');
+      });
+  };
 
   const handleClose = () => {
     if (!cashClose.cash || !cashClose.sales) {
@@ -101,72 +116,88 @@ export default function CashCloseScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps='handled'
           >
-            <Card variant="elevated" title="Información del Turno" subtitle="Ingresa los datos del cierre">
-              <ModernInput
-                label="Efectivo en Caja"
-                placeholder="Ingresa el efectivo contado"
-                value={cashClose.cash}
-                onChangeText={handleCashChange}
-                keyboardType="numeric"
-                icon="dollar-sign"
-              />
+            {cashClose._id ? (
+              <>
+                <Card variant="elevated" title="Información del Turno" subtitle="Ingresa los datos del cierre">
+                  <ModernInput
+                    label="Efectivo en Caja"
+                    placeholder="Ingresa el efectivo contado"
+                    value={cashClose.cash}
+                    onChangeText={handleCashChange}
+                    keyboardType="numeric"
+                    icon="dollar-sign"
+                  />
 
-              <ModernInput
-                label="Ventas con Tarjeta"
-                placeholder="Total de ventas con tarjeta"
-                value={cashClose.sales}
-                onChangeText={handleSalesChange}
-                keyboardType="numeric"
-                icon="credit-card"
-              />
+                  <ModernInput
+                    label="Ventas con Tarjeta"
+                    placeholder="Total de ventas con tarjeta"
+                    value={cashClose.sales}
+                    onChangeText={handleSalesChange}
+                    keyboardType="numeric"
+                    icon="credit-card"
+                  />
 
-              <ModernButton
-                title="Cerrar Caja"
-                onPress={handleClose}
-                variant="gradient"
-                size="large"
-                icon="hash"
-                style={styles.closeButton}
-              />
-            </Card>
+                  <ModernButton
+                    title="Cerrar Caja"
+                    onPress={handleClose}
+                    variant="gradient"
+                    size="large"
+                    icon="hash"
+                    style={styles.closeButton}
+                  />
+                </Card>
 
-            {cashClose.difference !== null && (
-              <Card variant="elevated" title="Resultado del Cierre" subtitle="Resumen de la operación">
-                <View style={styles.resultContainer}>
-                  <View style={[styles.resultIcon, { backgroundColor: getDifferenceColor() + '15' }]}>
-                    <Feather name={getDifferenceIcon()} size={24} color={getDifferenceColor()} />
+                {cashClose.difference !== null && (
+                  <Card variant="elevated" title="Resultado del Cierre" subtitle="Resumen de la operación">
+                    <View style={styles.resultContainer}>
+                      <View style={[styles.resultIcon, { backgroundColor: getDifferenceColor() + '15' }]}>
+                        <Feather name={getDifferenceIcon()} size={24} color={getDifferenceColor()} />
+                      </View>
+                      <View style={styles.resultInfo}>
+                        <Text style={styles.resultLabel}>Diferencia</Text>
+                        <Text style={[styles.resultAmount, { color: getDifferenceColor() }]}>
+                          {formatCurrency(Math.abs(cashClose.difference))}
+                        </Text>
+                        <Text style={[styles.resultStatus, { color: getDifferenceColor() }]}>
+                          {cashClose.difference === 0 ? 'Perfecto' : cashClose.difference > 0 ? 'Sobrante' : 'Faltante'}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                )}
+
+                <Card variant="outlined" title="Resumen Diario" subtitle="Estadísticas del día">
+                  <View style={styles.summaryContainer}>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryLabel}>Ventas con Tarjeta</Text>
+                      <Text style={styles.summaryValue}>{formatCurrency(parseFloat(cashClose.sales) || 0)}</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryLabel}>Efectivo en Caja</Text>
+                      <Text style={styles.summaryValue}>{formatCurrency(parseFloat(cashClose.cash) || 0)}</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={styles.summaryLabel}>Estado</Text>
+                      <Text style={[styles.summaryValue, { color: getDifferenceColor() }]}>
+                        {cashClose.difference === null ? 'Pendiente' : cashClose.difference === 0 ? 'Balanceado' : 'Desbalanceado'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.resultInfo}>
-                    <Text style={styles.resultLabel}>Diferencia</Text>
-                    <Text style={[styles.resultAmount, { color: getDifferenceColor() }]}>
-                      {formatCurrency(Math.abs(cashClose.difference))}
-                    </Text>
-                    <Text style={[styles.resultStatus, { color: getDifferenceColor() }]}>
-                      {cashClose.difference === 0 ? 'Perfecto' : cashClose.difference > 0 ? 'Sobrante' : 'Faltante'}
-                    </Text>
-                  </View>
-                </View>
+                </Card>
+              </>
+            ) : (
+              <Card variant="elevated" title="Abrir Caja" subtitle="Inicia un nuevo turno">
+                {/* Shift selection could be added here */}
+                <ModernButton
+                  title="Abrir Caja"
+                  onPress={handleOpenCashClose}
+                  variant="gradient"
+                  size="large"
+                  icon="box"
+                  style={styles.closeButton}
+                />
               </Card>
             )}
-
-            <Card variant="outlined" title="Resumen Diario" subtitle="Estadísticas del día">
-              <View style={styles.summaryContainer}>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Ventas con Tarjeta</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(parseFloat(cashClose.sales) || 0)}</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Efectivo en Caja</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(parseFloat(cashClose.cash) || 0)}</Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Estado</Text>
-                  <Text style={[styles.summaryValue, { color: getDifferenceColor() }]}>
-                    {cashClose.difference === null ? 'Pendiente' : cashClose.difference === 0 ? 'Balanceado' : 'Desbalanceado'}
-                  </Text>
-                </View>
-              </View>
-            </Card>
           </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>

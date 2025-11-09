@@ -51,6 +51,14 @@ const userSchema = new mongoose.Schema({
       type: String,
       enum: ['es', 'en'],
       default: 'es'
+    },
+    lowStockThreshold: {
+      type: Number,
+      default: 5
+    },
+    mediumStockThreshold: {
+      type: Number,
+      default: 15
     }
   }
 }, {

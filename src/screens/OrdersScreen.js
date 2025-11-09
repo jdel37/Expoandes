@@ -33,18 +33,20 @@ export default function OrdersScreen() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Entregado': return theme.success;
-      case 'Pendiente': return theme.warning;
-      case 'En Proceso': return theme.info;
+      case 'delivered': return theme.success;
+      case 'pending': return theme.warning;
+      case 'preparing': return theme.info;
+      case 'cancelled': return theme.error;
       default: return theme.textMuted;
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'Entregado': return 'check-circle';
-      case 'Pendiente': return 'clock';
-      case 'En Proceso': return 'loader';
+      case 'delivered': return 'check-circle';
+      case 'pending': return 'clock';
+      case 'preparing': return 'loader';
+      case 'cancelled': return 'x-circle';
       default: return 'circle';
     }
   };
@@ -87,15 +89,32 @@ export default function OrdersScreen() {
   };
 
   const handleStatusChange = (order) => {
-    const statuses = ['Pendiente', 'En Proceso', 'Entregado'];
+    const statuses = ['pending', 'preparing', 'delivered', 'cancelled'];
     const currentIndex = statuses.indexOf(order.status);
     const nextIndex = (currentIndex + 1) % statuses.length;
     const newStatus = statuses[nextIndex];
-    
-    updateOrderStatus(order.id, newStatus);
+
+    Alert.alert(
+      'Cambiar Estado',
+      `¿Estás seguro de que quieres cambiar el estado a "${statusToSpanish[newStatus]}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Confirmar', 
+          onPress: () => updateOrderStatus(order.id, newStatus)
+        }
+      ]
+    );
   };
 
   const stats = calculateStats();
+
+  const statusToSpanish = {
+    'pending': 'Pendiente',
+    'preparing': 'En Proceso',
+    'delivered': 'Entregado',
+    'cancelled': 'Cancelado'
+  };
 
   return (
     <AbstractBackground>
@@ -131,7 +150,7 @@ export default function OrdersScreen() {
 
           <Card variant="elevated" title="Pedidos Recientes" subtitle="Lista de órdenes activas">
             {orders.map((order) => (
-              <View key={order.id} style={styles.orderCard}>
+              <View key={order.id} style={[styles.orderCard, { borderLeftColor: getStatusColor(order.status) }]}>
                 <TouchableOpacity 
                   style={[styles.orderIcon, { backgroundColor: getStatusColor(order.status) + '15' }]}
                   onPress={() => handleStatusChange(order)}
@@ -151,7 +170,7 @@ export default function OrdersScreen() {
                 <View style={styles.orderActions}>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + '15' }]}>
                     <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-                      {order.status}
+                      {statusToSpanish[order.status] || order.status}
                     </Text>
                   </View>
                   <View style={styles.actionButtons}>
@@ -257,6 +276,7 @@ const getStyles = (colors) => StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
+    borderLeftWidth: 5,
   },
   orderIcon: {
     width: 44,

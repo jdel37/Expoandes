@@ -101,6 +101,31 @@ router.get('/', [
   }
 });
 
+// @route   GET /api/cash-close/current
+// @desc    Get current open cash close
+// @access  Private
+router.get('/current', auth, async (req, res) => {
+  try {
+    const cashClose = await CashClose.findOne({
+      restaurant: req.restaurant,
+      status: 'open',
+      isActive: true
+    })
+    .populate('openedBy', 'name email');
+
+    res.json({
+      status: 'success',
+      data: { cashClose }
+    });
+  } catch (error) {
+    console.error('Get current cash close error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error interno del servidor'
+    });
+  }
+});
+
 // @route   GET /api/cash-close/:id
 // @desc    Get single cash close
 // @access  Private
@@ -252,47 +277,20 @@ router.put('/:id/close', [
     const endOfDay = new Date(today);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Calculate expected cash from cash orders
-    const cashOrders = await Order.find({
+    // Calculate total sales from delivered orders
+    const deliveredOrders = await Order.find({
       restaurant: req.restaurant,
       createdAt: { $gte: startOfDay, $lte: endOfDay },
       isActive: true,
-                paymentMethod: 'cash',
-                status: 'delivered'    });
-    const expectedCashFromOrders = cashOrders.reduce((sum, order) => sum + order.total, 0);
-    const expectedCashInBox = cashClose.openingCash + expectedCashFromOrders;
-
-    // Calculate expected card sales from card orders
-    const cardOrders = await Order.find({
-      restaurant: req.restaurant,
-      createdAt: { $gte: startOfDay, $lte: endOfDay },
-      isActive: true,
-      paymentMethod: 'card',
       status: 'delivered'
     });
-    const expectedCardSales = cardOrders.reduce((sum, order) => sum + order.total, 0);
-
-    // Compare physical cash with expected cash
-    if (Math.abs(closingCash - expectedCashInBox) > 0.01) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Hay una diferencia en el efectivo. Esperado: ${formatCurrency(expectedCashInBox)}, Contado: ${formatCurrency(closingCash)}`
-      });
-    }
-
-    // Compare card sales with expected card sales
-    if (Math.abs(sales.card - expectedCardSales) > 0.01) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Hay una diferencia en las ventas con tarjeta. Esperado: ${formatCurrency(expectedCardSales)}, Registrado: ${formatCurrency(sales.card)}`
-      });
-    }
+    const totalSalesFromOrders = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
 
     // Close cash
     await cashClose.closeCash({
       closingCash,
-      expectedCash: expectedCashInBox,
-      sales,
+      cardSales: sales.card,
+      totalSalesFromOrders,
       expenses,
       notes
     }, req.user._id);

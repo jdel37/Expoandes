@@ -118,15 +118,21 @@ router.get('/sales', [
           restaurant: req.restaurant,
           createdAt: { $gte: start, $lte: end },
           isActive: true,
-          status: { $ne: 'cancelled' }
+          status: 'delivered' // Only delivered orders for profit calculation
+        }
+      },
+      { $unwind: '$items' }, // Unwind the items array
+      {
+        $addFields: {
+          itemProfit: { $multiply: [{ $subtract: ['$items.unitPrice', '$items.cost'] }, '$items.quantity'] }
         }
       },
       {
         $group: {
           _id: groupFormat,
           totalOrders: { $sum: 1 },
-          totalRevenue: { $sum: '$total' },
-          averageOrderValue: { $avg: '$total' },
+          totalProfit: { $sum: '$itemProfit' }, // Sum itemProfit for totalProfit
+          averageOrderValue: { $avg: '$total' }, // Still use total for average order value
           ordersByStatus: {
             $push: '$status'
           }
@@ -495,7 +501,7 @@ function calculateProjections(data, period) {
   
   const olderDataEndIndex = Math.max(0, y.length - 7);
   const olderData = y.slice(0, olderDataEndIndex);
-  const olderAvg = olderData.reduce((a, b) => a + b, 0) / (olderData.length || 1);
+  const olderAvg = olderData.length > 0 ? olderData.reduce((a, b) => a + b, 0) / olderData.length : 0;
   
   let trend = 'stable';
   if (olderAvg > 0) {

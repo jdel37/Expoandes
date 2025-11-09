@@ -20,11 +20,6 @@ const cashCloseSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  openingCash: {
-    type: Number,
-    required: [true, 'El dinero de apertura es requerido'],
-    min: [0, 'El dinero de apertura no puede ser negativo']
-  },
   closingCash: {
     type: Number,
     min: [0, 'El dinero de cierre no puede ser negativo']
@@ -119,12 +114,6 @@ cashCloseSchema.index({ openedBy: 1 });
 
 // Pre-save middleware to calculate derived fields
 cashCloseSchema.pre('save', function(next) {
-  // Calculate difference
-  this.difference = this.closingCash - this.expectedCash;
-  
-  // Calculate total sales
-  this.sales.total = this.sales.cash + this.sales.card + this.sales.transfer;
-  
   // Calculate total expenses
   this.totalExpenses = this.expenses.reduce((sum, expense) => sum + expense.amount, 0);
   
@@ -157,7 +146,7 @@ cashCloseSchema.statics.getDailySummary = function(restaurantId, date) {
   return this.aggregate([
     {
       $match: {
-        restaurant: new mongoose.Types.ObjectId(restaurantId),
+        restaurant: restaurantId,
         date: { $gte: startOfDay, $lte: endOfDay },
         isActive: true,
         status: 'closed'
@@ -184,13 +173,29 @@ cashCloseSchema.statics.getDailySummary = function(restaurantId, date) {
 // Instance method to close cash
 cashCloseSchema.methods.closeCash = function(closingData, closedBy) {
   this.closingCash = closingData.closingCash;
-  this.expectedCash = closingData.expectedCash;
-  this.sales = closingData.sales;
+  this.sales.card = closingData.cardSales;
   this.expenses = closingData.expenses || [];
   this.notes = closingData.notes || '';
   this.closedBy = closedBy;
   this.status = 'closed';
+
+  // Calculate total reported sales (cash in drawer + card sales)
+  const totalReportedSales = this.closingCash + this.sales.card;
   
+  // Total sales from delivered orders (system's record)
+  const totalSystemSales = closingData.totalSalesFromOrders;
+
+  // The difference is between what was reported and what the system recorded
+  this.difference = totalReportedSales - totalSystemSales;
+  
+  // Update sales total with system's record
+  this.sales.total = totalSystemSales;
+  
+  // Calculate expected cash in drawer (opening cash + cash sales from system)
+  // Cash sales from system = totalSystemSales - card sales (reported by user)
+  this.sales.cash = totalSystemSales - this.sales.card;
+  this.expectedCash = this.sales.cash;
+
   return this.save();
 };
 

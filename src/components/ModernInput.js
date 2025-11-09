@@ -118,13 +118,11 @@ const getStyles = (colors) => StyleSheet.create({
   inputContainerError: {
     borderColor: colors.error,
   },
-  input: {
-    flex: 1,
-    color: colors.text,
-    fontSize: 16,
-    paddingVertical: 0,
-  },
-  leftIcon: {
+      input: {
+        flex: 1,
+        color: colors.text,
+        fontSize: 16,
+      },  leftIcon: {
     marginRight: 12,
   },
   rightIcon: {

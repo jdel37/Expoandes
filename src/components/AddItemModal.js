@@ -129,7 +129,12 @@ export default function AddItemModal({
   };
 
   const handleUpdateQuantity = (itemId, newQuantity) => {
+    const inventoryItem = inventory.find(i => i.id === itemId);
     if (newQuantity < 1) {
+      return;
+    }
+    if (newQuantity > inventoryItem.quantity) {
+      Alert.alert('Stock insuficiente', `Solo hay ${inventoryItem.quantity} unidades disponibles.`);
       return;
     }
     setSelectedItems(selectedItems.map(i => i.inventoryItem === itemId ? { ...i, quantity: newQuantity } : i));
@@ -181,10 +186,13 @@ export default function AddItemModal({
 
     return (
       <View style={styles.itemRow}>
-        <Text style={styles.itemName}>{item.name}</Text>
+        <View>
+          <Text style={styles.itemName}>{item.name}</Text>
+          <Text style={styles.itemStock}>Disponible: {item.quantity}</Text>
+        </View>
         <Text style={styles.itemPrice}>{formatCurrency(item.sellingPrice)}</Text>
-        <TouchableOpacity onPress={() => handleAddItemToOrder(item)}>
-          <Feather name="plus-circle" size={24} color={theme.primary} />
+        <TouchableOpacity onPress={() => handleAddItemToOrder(item)} disabled={item.quantity <= 0}>
+          <Feather name="plus-circle" size={24} color={item.quantity <= 0 ? theme.textMuted : theme.primary} />
         </TouchableOpacity>
       </View>
     );
@@ -314,8 +322,7 @@ export default function AddItemModal({
                     error={errors.customer}
                     icon="user"
                   />
-                  {editItem && (
-                    <View style={styles.statusContainer}>
+                  <View style={styles.statusContainer}>
                       <Text style={styles.statusLabel}>Estado</Text>
                       <View style={styles.statusGrid}>
                         {orderStatuses.map((status) => (
@@ -337,7 +344,6 @@ export default function AddItemModal({
                         ))}
                       </View>
                     </View>
-                  )}
                 </>
               }
               showsVerticalScrollIndicator={false}
@@ -504,6 +510,10 @@ const getStyles = (colors) => StyleSheet.create({
   itemName: {
     fontSize: 16,
     color: colors.text,
+  },
+  itemStock: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
   itemPrice: {
     fontSize: 14,

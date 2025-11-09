@@ -424,6 +424,16 @@ class ApiService {
     
     return this.handleResponse(response);
   }
+
+  // Day endpoints
+  async endDay() {
+    const response = await fetch(`${this.baseURL}/day/end`, {
+      method: 'POST',
+      headers: await this.getAuthHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
 }
 
 export default new ApiService();

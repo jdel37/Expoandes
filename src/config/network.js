@@ -1,9 +1,9 @@
 // Configuración de red para Restaurante Manager
-// Actualizada automáticamente el Tue Nov  4 09:45:43 -05 2025
+// Actualizada automáticamente el Sun Nov  9 00:14:06 -05 2025
 
 export const NETWORK_CONFIG = {
   // IP local de tu computadora
-  LOCAL_IP: '157.253.252.62',
+  LOCAL_IP: '192.168.2.11',
   
   // Puerto del backend
   BACKEND_PORT: 3001,
@@ -12,9 +12,9 @@ export const NETWORK_CONFIG = {
   FRONTEND_PORT: 8082,
   
   // URLs completas
-  API_BASE_URL: `http://157.253.252.62:3001/api`,
-  SOCKET_URL: `http://157.253.252.62:3001`,
-  FRONTEND_URL: `http://157.253.252.62:8082`
+  API_BASE_URL: `http://192.168.2.11:3001/api`,
+  SOCKET_URL: `http://192.168.2.11:3001`,
+  FRONTEND_URL: `http://192.168.2.11:8082`
 };
 
 // Para obtener tu IP actual, ejecuta en terminal:

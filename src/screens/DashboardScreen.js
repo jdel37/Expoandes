@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   Dimensions,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -15,19 +16,93 @@ import Card from '../components/Card';
 import ModernButton from '../components/ModernButton';
 import Charts from '../components/Charts';
 import { formatCurrency } from '../utils/helpers';
+import apiService from '../services/apiService';
 
 const { width } = Dimensions.get('window');
 
 export default function DashboardScreen({ navigation }) {
   const { user } = useContext(AuthContext);
-  const { theme, calculateStats } = useApp();
+  const { theme, calculateStats, reloadData } = useApp();
   const styles = getStyles(theme);
+
+  const [salesChartData, setSalesChartData] = useState({
+    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+    values: [0, 0, 0, 0, 0, 0, 0],
+  });
 
   const stats = calculateStats();
 
-  const salesData = {
-    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-    values: [150, 220, 180, 250, 230, 300, 280],
+  const fetchSalesData = async () => {
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 6); // Last 7 days
+
+      const response = await apiService.getSalesAnalytics(startDate, endDate, 'day');
+      
+      const labels = [];
+      const values = [];
+      const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+      // Initialize data for the last 7 days with 0 sales
+      const dailySalesMap = new Map();
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        dailySalesMap.set(date.toISOString().split('T')[0], {
+          label: daysOfWeek[date.getDay()],
+          value: 0
+        });
+      }
+
+      response.data.salesData.forEach(item => {
+        const date = new Date(item._id); // _id is already a date string
+        dailySalesMap.set(date.toISOString().split('T')[0], {
+          label: daysOfWeek[date.getDay()],
+          value: item.totalRevenue
+        });
+      });
+
+      dailySalesMap.forEach(data => {
+        labels.push(data.label);
+        values.push(data.value);
+      });
+
+      setSalesChartData({ labels, values });
+
+    } catch (error) {
+      console.error('Error fetching sales analytics:', error);
+      // Optionally, set an error state or show an alert
+    }
+  };
+
+  useEffect(() => {
+    fetchSalesData();
+  }, [reloadData]); // Refetch when reloadData changes
+
+  const handleEndDay = () => {
+    Alert.alert(
+      "Finalizar Día",
+      "¿Estás seguro de que quieres finalizar el día? Esta acción archivará todos los pedidos y reiniciará las estadísticas diarias.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        { 
+          text: "Sí, Finalizar", 
+          onPress: async () => {
+            try {
+              await apiService.endDay();
+              Alert.alert("Éxito", "El día ha sido finalizado correctamente.");
+              await reloadData();
+            } catch (error) {
+              Alert.alert("Error", error.message || "No se pudo finalizar el día.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const sections = [
@@ -59,13 +134,7 @@ export default function DashboardScreen({ navigation }) {
       description: 'Gestión de órdenes',
       color: theme.warning
     },
-    { 
-      name: 'TPH', 
-      icon: 'clock', 
-      screen: 'TPH',
-      description: 'Tiempo por hora',
-      color: theme.secondary
-    },
+    
     { 
       name: 'Configuración', 
       icon: 'settings', 
@@ -84,8 +153,8 @@ export default function DashboardScreen({ navigation }) {
       >
         <View style={styles.header}>
           <View style={styles.greeting}>
-            <Text style={styles.welcome}>¡Hola, {user?.name || 'Usuario'}! 👋</Text>
-            <Text style={styles.subtitle}>Gestiona tu negocio de forma inteligente</Text>
+            <Text style={styles.welcome}>¡Hola, {user?.name }! </Text>
+            
           </View>
           
           <View style={styles.statsContainer}>
@@ -103,7 +172,7 @@ export default function DashboardScreen({ navigation }) {
           </View>
         </View>
 
-        <Charts data={salesData} />
+        {/* <Charts data={salesChartData} /> */}
 
         <View style={styles.quickActionsContainer}>
           <ModernButton 
@@ -121,6 +190,14 @@ export default function DashboardScreen({ navigation }) {
             style={styles.quickActionButton} 
           />
         </View>
+        
+        <ModernButton 
+          title="Acabar Día" 
+          icon="sunset" 
+          variant="destructive" 
+          onPress={handleEndDay} 
+          style={{ marginBottom: 24 }} 
+        />
 
         <View style={styles.grid}>
           {sections.map((item, i) => (

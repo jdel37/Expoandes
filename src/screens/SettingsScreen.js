@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Animated, StatusBar, Alert, Switch } from 'react-native';
+
 import Card from '../components/Card';
 import ModernButton from '../components/ModernButton';
 import AbstractBackground from '../components/AbstractBackground';
@@ -10,7 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export default function SettingsScreen() {
   const { logout, user } = useContext(AuthContext);
-  const { theme, notifications, darkMode, toggleNotifications, toggleDarkMode, setLanguage } = useApp();
+  const { theme, notifications, darkMode, toggleNotifications, toggleDarkMode, setLanguage, lowStockThreshold, mediumStockThreshold, setLowStockThreshold, setMediumStockThreshold, updatePreferences } = useApp();
   const styles = getStyles(theme);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
@@ -110,7 +111,7 @@ export default function SettingsScreen() {
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>Configuración</Text>
-          <Text style={styles.subtitle}>Personaliza tu experiencia</Text>
+          
         </Animated.View>
 
         <ScrollView 
@@ -156,6 +157,8 @@ export default function SettingsScreen() {
             ))}
           </Card>
 
+
+
           <Card variant="outlined" title="Información de la App" subtitle="Detalles del sistema">
             <View style={styles.infoContainer}>
               <View style={styles.infoRow}>
@@ -164,12 +167,9 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Última actualización</Text>
-                <Text style={styles.infoValue}>15 Ene 2025</Text>
+                <Text style={styles.infoValue}>8 Nov 2025</Text>
               </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Tamaño</Text>
-                <Text style={styles.infoValue}>25.4 MB</Text>
-              </View>
+              
             </View>
           </Card>
 
@@ -301,6 +301,21 @@ const getStyles = (colors) => StyleSheet.create({
   },
   logoutButton: {
     marginTop: 30,
+  },
+  sliderContainer: {
+    paddingVertical: 16,
+  },
+  sliderLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  sliderValue: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 4,
   },
 });
 

@@ -34,10 +34,16 @@ const initialState = {
     completedOrders: 0,
     averageOrderValue: 0
   },
+  salesAnalytics: {
+    labels: [],
+    values: []
+  },
   
   // App state
   loading: false,
-  error: null
+  error: null,
+  lowStockThreshold: 5,
+  mediumStockThreshold: 15
 };
 
 // Action types
@@ -60,6 +66,7 @@ const ActionTypes = {
   // Cash close
   UPDATE_CASH_CLOSE: 'UPDATE_CASH_CLOSE',
   CLOSE_CASH: 'CLOSE_CASH',
+  ADD_CASH_CLOSE: 'ADD_CASH_CLOSE',
   
   // App state
   SET_LOADING: 'SET_LOADING',
@@ -68,7 +75,9 @@ const ActionTypes = {
   
   // Data persistence
   LOAD_DATA: 'LOAD_DATA',
-  SAVE_DATA: 'SAVE_DATA'
+  SAVE_DATA: 'SAVE_DATA',
+  SET_LOW_STOCK_THRESHOLD: 'SET_LOW_STOCK_THRESHOLD',
+  SET_MEDIUM_STOCK_THRESHOLD: 'SET_MEDIUM_STOCK_THRESHOLD'
 };
 
 // Reducer
@@ -141,16 +150,16 @@ const appReducer = (state, action) => {
       };
       
     case ActionTypes.CLOSE_CASH:
-      const diff = parseFloat(state.cashClose.cash || 0) - parseFloat(state.cashClose.sales || 0);
       return {
         ...state,
-        cashClose: {
-          ...state.cashClose,
-          difference: diff,
-          lastClose: new Date().toISOString()
-        }
+        cashClose: action.payload
       };
       
+    case ActionTypes.ADD_CASH_CLOSE:
+      return {
+        ...state,
+        cashClose: action.payload
+      };      
     case ActionTypes.SET_LOADING:
       return {
         ...state,
@@ -175,6 +184,18 @@ const appReducer = (state, action) => {
         ...action.payload
       };
       
+    case ActionTypes.SET_LOW_STOCK_THRESHOLD:
+      return {
+        ...state,
+        lowStockThreshold: action.payload
+      };
+
+    case ActionTypes.SET_MEDIUM_STOCK_THRESHOLD:
+      return {
+        ...state,
+        mediumStockThreshold: action.payload
+      };
+
     default:
       return state;
   }
@@ -206,11 +227,12 @@ export const AppProvider = ({ children }) => {
   const loadDataFromAPI = async () => {
     try {
       // Load from API
-      const [inventoryResponse, ordersResponse, cashCloseResponse, analyticsResponse] = await Promise.all([
+      const [inventoryResponse, ordersResponse, cashCloseResponse, analyticsResponse, userResponse] = await Promise.all([
         apiService.getInventory(),
         apiService.getOrders(),
         apiService.getCurrentCashClose(),
-        apiService.getDashboardAnalytics()
+        apiService.getDashboardAnalytics(),
+        apiService.getCurrentUser()
       ]);
 
       dispatch({
@@ -235,7 +257,9 @@ export const AppProvider = ({ children }) => {
             totalOrders: 0,
             completedOrders: 0,
             averageOrderValue: 0
-          }
+          },
+          lowStockThreshold: userResponse.data.user.preferences.lowStockThreshold || 5,
+          mediumStockThreshold: userResponse.data.user.preferences.mediumStockThreshold || 15
         }
       });
     } catch (error) {
@@ -372,6 +396,9 @@ export const AppProvider = ({ children }) => {
         const response = await apiService.updateOrderStatus(id, status);
         const color = getStatusColor(status);
         dispatch({ type: ActionTypes.UPDATE_ORDER_STATUS, payload: { id, status, color } });
+        if (status === 'delivered') {
+          await loadDataFromAPI();
+        }
         return response;
       } catch (error) {
         console.error('Error updating order status:', error);
@@ -392,10 +419,28 @@ export const AppProvider = ({ children }) => {
     updateCashClose: (updates) => {
       dispatch({ type: ActionTypes.UPDATE_CASH_CLOSE, payload: updates });
     },
+    addCashClose: async (cashCloseData) => {
+      try {
+        const response = await apiService.createCashClose(cashCloseData);
+        const newCashClose = {
+          ...response.data.cashClose,
+          id: response.data.cashClose._id
+        };
+        dispatch({ type: ActionTypes.ADD_CASH_CLOSE, payload: newCashClose });
+        return response;
+      } catch (error) {
+        console.error('Error adding cash close:', error);
+        throw error;
+      }
+    },
     closeCash: async (closingData) => {
       try {
         const response = await apiService.closeCash(closingData._id, closingData);
-        dispatch({ type: ActionTypes.CLOSE_CASH });
+        const closedCashClose = {
+          ...response.data.cashClose,
+          id: response.data.cashClose._id
+        };
+        dispatch({ type: ActionTypes.CLOSE_CASH, payload: closedCashClose });
         return response;
       } catch (error) {
         console.error('Error closing cash:', error);
@@ -406,7 +451,17 @@ export const AppProvider = ({ children }) => {
     // App state actions
     setLoading: (loading) => dispatch({ type: ActionTypes.SET_LOADING, payload: loading }),
     setError: (error) => dispatch({ type: ActionTypes.SET_ERROR, payload: error }),
-    clearError: () => dispatch({ type: ActionTypes.CLEAR_ERROR })
+    clearError: () => dispatch({ type: ActionTypes.CLEAR_ERROR }),
+    setLowStockThreshold: (threshold) => dispatch({ type: ActionTypes.SET_LOW_STOCK_THRESHOLD, payload: threshold }),
+    setMediumStockThreshold: (threshold) => dispatch({ type: ActionTypes.SET_MEDIUM_STOCK_THRESHOLD, payload: threshold }),
+    updatePreferences: async (preferences) => {
+      try {
+        await apiService.updatePreferences(preferences);
+      } catch (error) {
+        console.error('Error updating preferences:', error);
+        throw error;
+      }
+    }
   };
 
   // Helper functions
@@ -425,8 +480,8 @@ export const AppProvider = ({ children }) => {
   };
 
   const getStockStatus = (qty) => {
-    if (qty <= 5) return { status: 'Bajo', color: '#FF4757' };
-    if (qty <= 15) return { status: 'Medio', color: '#FFB800' };
+    if (qty <= state.lowStockThreshold) return { status: 'Bajo', color: '#FF4757' };
+    if (qty <= state.mediumStockThreshold) return { status: 'Medio', color: '#FFB800' };
     return { status: 'Alto', color: '#7ED321' };
   };
 
