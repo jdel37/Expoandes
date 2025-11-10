@@ -14,6 +14,11 @@ export default function CashCloseScreen() {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(30));
   const [shift, setShift] = useState('full-day'); // Default shift
+  const [openingCash, setOpeningCash] = useState('');
+
+  const handleOpeningCashChange = useCallback((value) => {
+    setOpeningCash(value);
+  }, []);
 
   React.useEffect(() => {
     Animated.parallel([
@@ -30,50 +35,43 @@ export default function CashCloseScreen() {
     ]).start();
   }, []);
 
-  const handleOpenCashClose = () => {
-    const cashCloseData = {
-      shift,
-    };
-
-    addCashClose(cashCloseData)
-      .then(() => {
-        Alert.alert('Caja Abierta', 'La caja se ha abierto exitosamente.');
-      })
-      .catch(err => {
-        Alert.alert('Error al Abrir Caja', err.message || 'No se pudo abrir la caja.');
-      });
-  };
-
-  const handleClose = () => {
+  const handleClose = async () => {
     if (!cashClose.cash || !cashClose.sales) {
       Alert.alert('Error', 'Por favor ingresa tanto el efectivo en caja como las ventas con tarjeta');
       return;
     }
 
-    const closingData = {
-      _id: cashClose._id,
+    const cashCloseData = {
       closingCash: parseFloat(cashClose.cash),
       sales: {
         card: parseFloat(cashClose.sales),
       }
     };
-    
-    closeCash(closingData)
-      .then((response) => {
-        const { difference } = response.data.cashClose;
-        let message = `Cierre realizado exitosamente.\nDiferencia: ${formatCurrency(Math.abs(difference))}`;
-        if (difference === 0) {
-          message += '\n¡Perfecto! No hay diferencia.';
-        } else if (difference > 0) {
-          message += '\nSobrante en caja.';
-        } else {
-          message += '\nFaltante en caja.';
-        }
-        Alert.alert('Cierre de Caja', message);
-      })
-      .catch(err => {
-        Alert.alert('Error de Cierre', err.message || 'No se pudo cerrar la caja.');
-      });
+
+    try {
+      let response;
+      if (cashClose._id) {
+        // If _id exists, it means we are closing an existing cash close
+        const dataToClose = { ...cashCloseData, _id: cashClose._id };
+        response = await closeCash(dataToClose);
+      } else {
+        // If _id does not exist, it means we are creating a new cash close
+        response = await addCashClose(cashCloseData);
+      }
+      
+      const { difference } = response.data.cashClose;
+      let message = `Cierre realizado exitosamente.\nDiferencia: ${formatCurrency(Math.abs(difference))}`;
+      if (difference === 0) {
+        message += '\n¡Perfecto! No hay diferencia.';
+      } else if (difference > 0) {
+        message += '\nSobrante en caja.';
+      } else {
+        message += '\nFaltante en caja.';
+      }
+      Alert.alert('Cierre de Caja', message);
+    } catch (err) {
+      Alert.alert('Error de Cierre', err.message || 'No se pudo cerrar la caja.');
+    }
   };
 
   const handleCashChange = useCallback((value) => {
@@ -116,8 +114,7 @@ export default function CashCloseScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps='handled'
           >
-            {cashClose._id ? (
-              <>
+            <>
                 <Card variant="elevated" title="Información del Turno" subtitle="Ingresa los datos del cierre">
                   <ModernInput
                     label="Efectivo en Caja"
@@ -185,19 +182,6 @@ export default function CashCloseScreen() {
                   </View>
                 </Card>
               </>
-            ) : (
-              <Card variant="elevated" title="Abrir Caja" subtitle="Inicia un nuevo turno">
-                {/* Shift selection could be added here */}
-                <ModernButton
-                  title="Abrir Caja"
-                  onPress={handleOpenCashClose}
-                  variant="gradient"
-                  size="large"
-                  icon="box"
-                  style={styles.closeButton}
-                />
-              </Card>
-            )}
           </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -287,3 +271,4 @@ const getStyles = (colors) => StyleSheet.create({
     fontWeight: '600',
   },
 });
+

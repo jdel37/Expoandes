@@ -23,8 +23,8 @@ export const AuthProvider = ({ children }) => {
         const user = JSON.parse(userData);
         setUser(user);
         
-        // Conectar socket si hay usuario
-        await socketService.connect();
+                // Conectar socket
+                // await socketService.connect();
       }
     } catch (error) {
       console.error('Error loading user:', error);
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data.user);
         
         // Conectar socket
-        await socketService.connect();
+        // await socketService.connect();
         
         // Disparar evento para que AppContext recargue datos
         eventBus.emit('userAuthenticated');
@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data.user);
         
         // Conectar socket
-        await socketService.connect();
+        // await socketService.connect();
         
         // Disparar evento para que AppContext recargue datos
         eventBus.emit('userAuthenticated');

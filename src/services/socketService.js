@@ -26,6 +26,11 @@ class SocketService {
         return;
       }
 
+      if (NETWORK_CONFIG.SOCKET_URL.includes('expoandes-backend-c91zdtdcy-jdel37s-projects.vercel.app/api')) {
+        console.warn('Socket.IO connection skipped: Vercel does not support WebSockets directly. Please provide a separate Socket.IO server URL.');
+        return;
+      }
+
       // Conectar al servidor
       this.socket = io(NETWORK_CONFIG.SOCKET_URL, {
         transports: ['websocket'],

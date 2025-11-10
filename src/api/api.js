@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { NETWORK_CONFIG } from '../config/network';
 
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.5:4000/api',
+  baseURL: NETWORK_CONFIG.API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 

@@ -10,10 +10,8 @@ echo ""
 # Función para limpiar procesos anteriores
 cleanup() {
     echo "🧹 Limpiando procesos anteriores..."
-    pkill -f "mongod" 2>/dev/null || true
     pkill -f "node.*server.js" 2>/dev/null || true
     pkill -f "expo start" 2>/dev/null || true
-    lsof -ti:27017 | xargs kill -9 2>/dev/null || true
     lsof -ti:3001 | xargs kill -9 2>/dev/null || true
     lsof -ti:8081 | xargs kill -9 2>/dev/null || true
     lsof -ti:8082 | xargs kill -9 2>/dev/null || true
@@ -24,35 +22,11 @@ cleanup() {
 # Función para crear directorios
 setup_dirs() {
     echo "📁 Preparando directorios..."
-    mkdir -p data/db logs
+    mkdir -p logs
     echo "✅ Directorios listos"
 }
 
-# Función para iniciar MongoDB
-start_mongodb() {
-    echo "🍃 Iniciando MongoDB..."
-    
-    # Verificar si MongoDB está disponible
-    if ! command -v mongod &> /dev/null; then
-        echo "❌ MongoDB no encontrado. Instálalo con: brew install mongodb-community"
-        exit 1
-    fi
-    
-    # Iniciar MongoDB (sin --fork para macOS)
-    mongod --dbpath data/db --logpath logs/mongodb.log --port 27017 --bind_ip 127.0.0.1 &
-    MONGO_PID=$!
-    
-    # Esperar a que MongoDB esté listo
-    echo "⏳ Esperando MongoDB..."
-    sleep 5
-    
-    if lsof -i :27017 >/dev/null 2>&1; then
-        echo "✅ MongoDB iniciado (PID: $MONGO_PID)"
-    else
-        echo "❌ Error al iniciar MongoDB"
-        exit 1
-    fi
-}
+
 
 # Función para iniciar Backend
 start_backend() {
@@ -139,7 +113,6 @@ trap cleanup_on_exit INT TERM
 # Ejecutar secuencia de inicio
 cleanup
 setup_dirs
-start_mongodb
 start_backend
 start_frontend
 show_status
